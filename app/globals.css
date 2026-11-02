@@ -1,26 +1,87 @@
 @import "tailwindcss";
 
 :root {
-  --background: #ffffff;
-  --foreground: #171717;
+  --brand-primary: #ffad0d;
+  --brand-primary-hover: #ffc332;
+  --brand-primary-soft: #fff3d8;
+  --surface-page: #f3f3f3;
+  --surface-panel: #ffffff;
+  --border-subtle: #e1e1e1;
+  --text-primary: #202020;
+  --text-secondary: #666666;
+  --surface-dark: #171717;
+  --accent-cyan: #009ed8;
+  --accent-magenta: #e60087;
+  --status-error: #b42318;
+  --status-error-soft: #fdecea;
+  --border-strong: #c9c9c9;
+  --ease-out: cubic-bezier(0.23, 1, 0.32, 1);
 }
 
 @theme inline {
-  --color-background: var(--background);
-  --color-foreground: var(--foreground);
+  --color-primary: var(--brand-primary);
+  --color-primary-hover: var(--brand-primary-hover);
+  --color-primary-soft: var(--brand-primary-soft);
+  --color-page: var(--surface-page);
+  --color-panel: var(--surface-panel);
+  --color-line: var(--border-subtle);
+  --color-ink: var(--text-primary);
+  --color-muted: var(--text-secondary);
+  --color-dark: var(--surface-dark);
+  --color-cyan: var(--accent-cyan);
+  --color-magenta: var(--accent-magenta);
+  --color-danger: var(--status-error);
+  --color-danger-soft: var(--status-error-soft);
+  --color-line-strong: var(--border-strong);
   --font-sans: var(--font-geist-sans);
-  --font-mono: var(--font-geist-mono);
+  --ease-out: var(--ease-out);
 }
 
-@media (prefers-color-scheme: dark) {
-  :root {
-    --background: #0a0a0a;
-    --foreground: #ededed;
-  }
+html {
+  color-scheme: light;
+  scrollbar-color: var(--border-strong) transparent;
+  scrollbar-width: thin;
+}
+
+::selection {
+  background: var(--brand-primary-soft);
+  color: var(--text-primary);
 }
 
 body {
-  background: var(--background);
-  color: var(--foreground);
-  font-family: Arial, Helvetica, sans-serif;
+  background: var(--surface-panel);
+  color: var(--text-primary);
+  font-family: var(--font-geist-sans), Arial, Helvetica, sans-serif;
+}
+
+:focus-visible {
+  outline: 2px solid var(--text-primary);
+  outline-offset: 2px;
+}
+
+input[type="range"] {
+  accent-color: var(--brand-primary);
+}
+
+dialog::backdrop {
+  background: rgb(23 23 23 / 0.45);
+}
+
+@media (hover: hover) and (pointer: fine) {
+  .print-tile:hover {
+    box-shadow: 0 0 0 1px var(--text-primary);
+  }
+}
+
+/* Colour feedback stays; movement goes. */
+@media (prefers-reduced-motion: reduce) {
+  button,
+  button::after,
+  button > span {
+    transition-property: background-color, border-color, color !important;
+  }
+
+  button:active {
+    transform: none !important;
+  }
 }
