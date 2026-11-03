@@ -1,69 +1,157 @@
-import Image from "next/image";
+import Link from "next/link";
+import { ArrowRight } from "lucide-react";
+import { Logo } from "@/components/Logo";
+import type { PrintItem } from "@/features/job/types";
+import { packItems } from "@/features/layout/pack";
+
+const SHEET = { widthMm: 210, heightMm: 297, insetMm: 0 };
+
+function copies(groupId: string, count: number, sizeMm: number): PrintItem[] {
+  return Array.from({ length: count }, (_, copyIndex) => ({
+    id: `${groupId}-${copyIndex}`,
+    groupId,
+    photoSizeId: `${sizeMm}`,
+    copyIndex,
+    widthMm: sizeMm,
+    heightMm: sizeMm,
+    allowRotation: false,
+  }));
+}
+
+const STEPS = [
+  { title: "Add your photos", body: "Drop in JPG, PNG or WebP files. Each photo keeps its own crop and settings." },
+  { title: "Pick each package", body: "One customer takes 2 × 2 in, the next takes 1 × 1 in. Nothing carries over." },
+  { title: "Let the sheet fill itself", body: "Every copy is packed onto shared paper at its true size, down to a 0 mm gap." },
+  { title: "Export and print", body: "Download a PDF at the exact paper size, or a 300 DPI PNG." },
+];
+
+const MEASURES = [
+  { value: "0 mm", label: "Software margin when borderless is on, the default for new jobs" },
+  { value: "0 mm", label: "Smallest gap, set separately for horizontal and vertical spacing" },
+  { value: "300 DPI", label: "Default PNG export, rendered fresh instead of captured from the screen" },
+  { value: "No uploads", label: "Editing, packing and export all run in your browser" },
+];
 
 export default function Home() {
+  // The preview is the real packing engine's output for the demo job below.
+  const demo = packItems([...copies("a", 4, 50.8), ...copies("b", 12, 25.4)], {
+    sheet: SHEET,
+    gapXmm: 1,
+    gapYmm: 1,
+    allowItemRotation: false,
+  });
+
   return (
-    <div className="flex flex-col flex-1 items-center justify-center bg-zinc-50 font-sans dark:bg-black">
-      <main className="flex flex-1 w-full max-w-3xl flex-col items-center justify-between py-32 px-16 bg-white dark:bg-black sm:items-start">
-        <Image
-          className="dark:invert h-5 w-[100px]"
-          src="/next.svg"
-          alt="Next.js logo"
-          width={100}
-          height={20}
-          priority
-        />
-        <div className="flex flex-col items-center gap-6 text-center sm:items-start sm:text-left">
-          <h1 className="max-w-xs text-3xl font-semibold leading-10 tracking-tight text-black dark:text-zinc-50">
-            To get started, edit the{" "}
-            <code className="rounded bg-black/[.06] px-1.5 py-0.5 font-mono text-[0.9em] dark:bg-white/[.08]">
-              page.tsx
-            </code>{" "}
-            file.
-          </h1>
-          <p className="max-w-md text-lg leading-8 text-zinc-600 dark:text-zinc-400">
-            Looking for a starting point or more instructions? Head over to{" "}
-            <a
-              href="https://vercel.com/templates?framework=next.js&utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-              className="font-medium text-zinc-950 dark:text-zinc-50"
+    <div className="flex min-h-full flex-col">
+      <header className="mx-auto flex w-full max-w-6xl items-center justify-between gap-4 px-4 py-4 sm:px-8">
+        <Link href="/" aria-label="Pixmora home">
+          <Logo height={44} priority />
+        </Link>
+        <nav className="flex items-center gap-2">
+          <Link href="/help" className="rounded-lg px-3 py-2 text-sm font-medium text-muted transition-colors duration-150 hover:text-ink">
+            Print guide
+          </Link>
+          <Link
+            href="/studio"
+            className="inline-flex h-10 items-center rounded-lg bg-primary px-4 text-sm font-medium text-ink transition-colors duration-150 ease-out hover:bg-primary-hover"
+          >
+            Open Studio
+          </Link>
+        </nav>
+      </header>
+
+      <main className="flex-1">
+        <section className="mx-auto grid w-full max-w-6xl items-center gap-12 px-4 pt-10 pb-20 sm:px-8 md:grid-cols-[1fr_minmax(0,360px)] md:gap-16 md:pt-16">
+          <div>
+            <h1 className="text-5xl leading-[1.05] font-semibold tracking-tight text-balance sm:text-6xl">
+              Less Space. More Prints.
+            </h1>
+            <p className="mt-6 max-w-[52ch] text-lg leading-relaxed text-muted">
+              Pixmora prepares photos and packs them onto shared paper at their exact physical
+              size. Mix customers and packages on one sheet, then print without opening a word
+              processor.
+            </p>
+            <Link
+              href="/studio"
+              className="mt-8 inline-flex h-12 items-center gap-2 rounded-lg bg-primary px-5 font-medium text-ink transition-colors duration-150 ease-out hover:bg-primary-hover"
             >
-              Templates
-            </a>{" "}
-            or the{" "}
-            <a
-              href="https://nextjs.org/learn?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-              className="font-medium text-zinc-950 dark:text-zinc-50"
+              Open Studio
+              <ArrowRight aria-hidden className="size-4" />
+            </Link>
+          </div>
+
+          <figure>
+            <div
+              className="relative w-full bg-panel outline-1 outline-line"
+              style={{ aspectRatio: `${SHEET.widthMm} / ${SHEET.heightMm}` }}
             >
-              Learning
-            </a>{" "}
-            center.
+              {demo.placements.map((placement) => (
+                <div
+                  key={placement.itemId}
+                  aria-hidden
+                  className={`absolute ${placement.groupId === "a" ? "bg-primary" : "bg-line-strong"}`}
+                  style={{
+                    left: `${(placement.xMm / SHEET.widthMm) * 100}%`,
+                    top: `${(placement.yMm / SHEET.heightMm) * 100}%`,
+                    width: `${(placement.widthMm / SHEET.widthMm) * 100}%`,
+                    height: `${(placement.heightMm / SHEET.heightMm) * 100}%`,
+                  }}
+                />
+              ))}
+            </div>
+            <figcaption className="mt-3 text-[13px] text-muted">
+              Two customers, {demo.placements.length} prints, one A4 sheet. Packed by the same
+              engine the Studio uses.
+            </figcaption>
+          </figure>
+        </section>
+
+        <section className="bg-page">
+          <div className="mx-auto w-full max-w-6xl px-4 py-16 sm:px-8">
+            <h2 className="text-2xl font-semibold tracking-tight">From photo to paper</h2>
+            <ol className="mt-8 grid gap-x-10 gap-y-8 sm:grid-cols-2 lg:grid-cols-4">
+              {STEPS.map((step, index) => (
+                <li key={step.title}>
+                  <span className="text-sm text-muted tabular-nums">{index + 1}</span>
+                  <h3 className="mt-2 font-semibold">{step.title}</h3>
+                  <p className="mt-1.5 text-sm leading-relaxed text-muted">{step.body}</p>
+                </li>
+              ))}
+            </ol>
+          </div>
+        </section>
+
+        <section className="mx-auto w-full max-w-6xl px-4 py-16 sm:px-8">
+          <dl className="divide-y divide-line border-y border-line">
+            {MEASURES.map((measure) => (
+              <div key={measure.label} className="grid gap-1 py-5 sm:grid-cols-[200px_1fr] sm:items-baseline">
+                <dt className="text-xl font-semibold tabular-nums">{measure.value}</dt>
+                <dd className="text-sm leading-relaxed text-muted">{measure.label}</dd>
+              </div>
+            ))}
+          </dl>
+          <p className="mt-8 max-w-[68ch] text-sm leading-relaxed text-muted">
+            Pixmora can create a zero-margin file, but edge-to-edge output depends on your printer,
+            paper and driver settings.{" "}
+            <Link href="/help" className="font-medium text-ink underline underline-offset-2">
+              Read the print guide
+            </Link>
+            .
           </p>
-        </div>
-        <div className="flex flex-col gap-4 text-base font-medium sm:flex-row">
-          <a
-            className="flex h-12 w-full items-center justify-center gap-2 rounded-full bg-foreground px-5 text-background transition-colors hover:bg-[#383838] dark:hover:bg-[#ccc] md:w-[158px]"
-            href="https://vercel.com/new?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            <Image
-              className="dark:invert h-[14px] w-4"
-              src="/vercel.svg"
-              alt="Vercel logomark"
-              width={16}
-              height={14}
-            />
-            Deploy Now
-          </a>
-          <a
-            className="flex h-12 w-full items-center justify-center rounded-full border border-solid border-black/[.08] px-5 transition-colors hover:border-transparent hover:bg-black/[.04] dark:border-white/[.145] dark:hover:bg-[#1a1a1a] md:w-[158px]"
-            href="https://nextjs.org/docs?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            Documentation
-          </a>
-        </div>
+        </section>
       </main>
+
+      <footer className="border-t border-line">
+        <div className="mx-auto flex w-full max-w-6xl flex-wrap items-center justify-between gap-4 px-4 py-6 text-[13px] text-muted sm:px-8">
+          <span>Pixmora: photo preparation and print layout.</span>
+          <span className="flex items-center gap-2" aria-hidden>
+            <span className="size-2 rounded-full bg-cyan" />
+            <span className="size-2 rounded-full bg-magenta" />
+            <span className="size-2 rounded-full bg-primary" />
+            <span className="size-2 rounded-full bg-dark" />
+          </span>
+        </div>
+      </footer>
     </div>
   );
 }
