@@ -1,5 +1,9 @@
 @import "tailwindcss";
 
+/* Touch screens need bigger targets at any width; phones held sideways need less chrome. */
+@custom-variant coarse (@media (pointer: coarse));
+@custom-variant short (@media (max-height: 480px));
+
 :root {
   --brand-primary: #ffad0d;
   --brand-primary-hover: #ffc332;

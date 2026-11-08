@@ -14,6 +14,8 @@ import { useLayout } from "./useLayout";
 import { isInsideRegion, overlaps } from "./validate";
 
 const FRAME_PADDING = 32;
+const FRAME_PADDING_NARROW = 12;
+const NARROW_FRAME = 480;
 const SNAP_MM = 1.5;
 const ZOOM_STEPS = [1, 1.5, 2, 3];
 
@@ -59,6 +61,7 @@ function SheetCanvas({
   gapX,
   gapY,
   allPlacements,
+  zoomed,
 }: {
   sheet: SheetBounds;
   placements: Placement[];
@@ -69,6 +72,7 @@ function SheetCanvas({
   gapX: number;
   gapY: number;
   allPlacements: Placement[];
+  zoomed: boolean;
 }) {
   const selectedGroupId = useStudio((state) => state.selectedGroupId);
   const select = useStudio((state) => state.select);
@@ -198,7 +202,8 @@ function SheetCanvas({
               setOffset(null);
             }}
             onKeyDown={(event) => onKeyDown(event, placement)}
-            className={`print-tile absolute touch-none overflow-hidden bg-page select-none ${
+            // Zoomed in, a finger on a print has to pan the sheet, or nothing could scroll.
+            className={`print-tile absolute overflow-hidden bg-page select-none ${zoomed ? "touch-auto" : "touch-none"} ${
               moving ? "z-10 cursor-grabbing" : "cursor-grab"
             } ${selectedGroupId === placement.groupId ? "outline-1 -outline-offset-1 outline-primary" : ""}`}
             style={{
@@ -258,9 +263,10 @@ export function SheetPreview() {
   }, []);
 
   const { sheet } = layout;
+  const padding = frame.width < NARROW_FRAME ? FRAME_PADDING_NARROW : FRAME_PADDING;
   const fit = Math.min(
-    Math.max(frame.width - FRAME_PADDING * 2, 120) / sheet.widthMm,
-    Math.max(frame.height - FRAME_PADDING * 2, 120) / sheet.heightMm,
+    Math.max(frame.width - padding * 2, 120) / sheet.widthMm,
+    Math.max(frame.height - padding * 2, 120) / sheet.heightMm,
   );
   const scale = fit * ZOOM_STEPS[zoomIndex];
   const sheetIndex = clampIndex(requestedSheet, layout.sheetCount);
@@ -284,53 +290,56 @@ export function SheetPreview() {
 
   return (
     <div className="flex h-full min-h-0 flex-col">
-      <div className="flex flex-wrap items-center justify-between gap-x-4 gap-y-1 border-b border-line bg-panel px-4 py-2">
-        <div className="flex items-center gap-1">
-          <IconButton
-            label="Previous sheet"
-            disabled={sheetIndex === 0}
-            onClick={() => setRequestedSheet(sheetIndex - 1)}
-          >
-            <ChevronLeft aria-hidden className="size-4" />
-          </IconButton>
-          <span className="min-w-[88px] text-center text-[13px] tabular-nums">
-            Sheet {layout.sheetCount === 0 ? 0 : sheetIndex + 1} of {layout.sheetCount}
-          </span>
-          <IconButton
-            label="Next sheet"
-            disabled={sheetIndex >= layout.sheetCount - 1}
-            onClick={() => setRequestedSheet(sheetIndex + 1)}
-          >
-            <ChevronRight aria-hidden className="size-4" />
-          </IconButton>
-        </div>
-        <p className="text-xs text-muted tabular-nums">
-          {formatSize(sheet.widthMm, sheet.heightMm)} • {Math.round(layout.utilization * 100)}% of
-          paper used
-        </p>
-        <div className="flex items-center gap-1">
-          {hasManual ? (
-            <Button variant="ghost" size="sm" onClick={() => setConfirmingReset(true)}>
-              Reset to optimized
-            </Button>
-          ) : null}
-          <IconButton
-            label="Zoom out"
-            disabled={zoomIndex === 0}
-            onClick={() => setZoomIndex(zoomIndex - 1)}
-          >
-            <Minus aria-hidden className="size-4" />
-          </IconButton>
-          <span className="w-10 text-center text-xs text-muted tabular-nums">
-            {ZOOM_STEPS[zoomIndex] * 100}%
-          </span>
-          <IconButton
-            label="Zoom in"
-            disabled={zoomIndex === ZOOM_STEPS.length - 1}
-            onClick={() => setZoomIndex(zoomIndex + 1)}
-          >
-            <Plus aria-hidden className="size-4" />
-          </IconButton>
+      {/* Sized by this panel, not the screen, because tablet panes are narrower than phones held sideways. */}
+      <div className="@container border-b border-line bg-panel">
+        <div className="flex flex-wrap items-center justify-between gap-x-2 gap-y-1 px-4 py-2 short:py-0.5 max-sm:px-2 @xl:gap-x-4">
+          <div className="flex items-center gap-1 max-sm:gap-0">
+            <IconButton
+              label="Previous sheet"
+              disabled={sheetIndex === 0}
+              onClick={() => setRequestedSheet(sheetIndex - 1)}
+            >
+              <ChevronLeft aria-hidden className="size-4" />
+            </IconButton>
+            <span className="min-w-[72px] text-center text-[13px] tabular-nums sm:min-w-[88px]">
+              Sheet {layout.sheetCount === 0 ? 0 : sheetIndex + 1} of {layout.sheetCount}
+            </span>
+            <IconButton
+              label="Next sheet"
+              disabled={sheetIndex >= layout.sheetCount - 1}
+              onClick={() => setRequestedSheet(sheetIndex + 1)}
+            >
+              <ChevronRight aria-hidden className="size-4" />
+            </IconButton>
+          </div>
+          <p className="text-xs text-muted tabular-nums @max-xl:order-last @max-xl:w-full @max-xl:px-2">
+            {formatSize(sheet.widthMm, sheet.heightMm)} • {Math.round(layout.utilization * 100)}% of
+            paper used
+          </p>
+          <div className="flex flex-wrap items-center gap-1 max-sm:gap-0">
+            {hasManual ? (
+              <Button variant="ghost" size="sm" onClick={() => setConfirmingReset(true)}>
+                Reset to optimized
+              </Button>
+            ) : null}
+            <IconButton
+              label="Zoom out"
+              disabled={zoomIndex === 0}
+              onClick={() => setZoomIndex(zoomIndex - 1)}
+            >
+              <Minus aria-hidden className="size-4" />
+            </IconButton>
+            <span className="w-10 text-center text-xs text-muted tabular-nums">
+              {ZOOM_STEPS[zoomIndex] * 100}%
+            </span>
+            <IconButton
+              label="Zoom in"
+              disabled={zoomIndex === ZOOM_STEPS.length - 1}
+              onClick={() => setZoomIndex(zoomIndex + 1)}
+            >
+              <Plus aria-hidden className="size-4" />
+            </IconButton>
+          </div>
         </div>
       </div>
 
@@ -367,7 +376,7 @@ export function SheetPreview() {
       ) : null}
 
       <div ref={frameRef} className="min-h-0 flex-1 overflow-auto bg-page">
-        <div className="flex min-h-full min-w-full w-max items-center justify-center" style={{ padding: FRAME_PADDING }}>
+        <div className="flex min-h-full min-w-full w-max items-center justify-center" style={{ padding }}>
           {frame.width > 0 ? (
             <SheetCanvas
               key={sheetIndex}
@@ -380,6 +389,7 @@ export function SheetPreview() {
               sizeLabels={sizeLabels}
               gapX={options.gapXmm}
               gapY={options.gapYmm}
+              zoomed={zoomIndex > 0}
             />
           ) : null}
         </div>

@@ -20,7 +20,7 @@ const BUTTON_VARIANTS = {
   danger: "border border-line bg-panel text-danger hover:bg-page",
 };
 
-const BUTTON_SIZES = { sm: "h-8 px-3 text-[13px] max-md:h-11", md: "h-10 px-4 text-sm max-md:h-11" };
+const BUTTON_SIZES = { sm: "h-8 px-3 text-[13px] max-md:h-11 coarse:h-11", md: "h-10 px-4 text-sm max-md:h-11 coarse:h-11" };
 
 type ButtonProps = ButtonHTMLAttributes<HTMLButtonElement> & {
   variant?: keyof typeof BUTTON_VARIANTS;
@@ -54,7 +54,7 @@ export function IconButton({
       type={type}
       aria-label={label}
       title={label}
-      className={`inline-flex size-8 shrink-0 items-center justify-center rounded-lg text-ink transition-[background-color,transform] duration-150 ease-out hover:bg-page active:scale-95 max-md:size-11 disabled:cursor-not-allowed disabled:opacity-40 disabled:active:scale-100 ${className}`}
+      className={`inline-flex size-8 shrink-0 items-center justify-center rounded-lg text-ink transition-[background-color,transform] duration-150 ease-out hover:bg-page active:scale-95 max-md:size-11 coarse:size-11 disabled:cursor-not-allowed disabled:opacity-40 disabled:active:scale-100 ${className}`}
       {...props}
     />
   );
@@ -83,7 +83,7 @@ export function Field({
 }
 
 const INPUT =
-  "h-9 w-full min-w-0 rounded-lg border border-line bg-panel px-2.5 text-sm text-ink transition-colors duration-150 hover:border-line-strong aria-invalid:border-danger max-md:h-11 max-md:text-base";
+  "h-9 w-full min-w-0 rounded-lg border border-line bg-panel px-2.5 text-sm text-ink transition-colors duration-150 hover:border-line-strong aria-invalid:border-danger max-md:h-11 max-md:text-base coarse:h-11";
 
 export function TextField({
   value,
@@ -218,7 +218,7 @@ export function Toggle({
         role="switch"
         aria-checked={checked}
         onClick={() => onChange(!checked)}
-        className={`relative mt-0.5 h-5 w-9 shrink-0 rounded-full transition-colors duration-150 ease-out ${
+        className={`relative mt-0.5 h-5 w-9 shrink-0 rounded-full transition-colors duration-150 ease-out after:absolute after:-inset-3 ${
           checked ? "bg-primary" : "bg-line-strong"
         }`}
       >
@@ -247,7 +247,7 @@ export function Checkbox({
     <label className="flex items-start gap-2.5">
       <input
         type="checkbox"
-        className="mt-0.5 size-4 shrink-0 accent-[var(--brand-primary)]"
+        className="mt-0.5 size-4 shrink-0 accent-[var(--brand-primary)] coarse:size-5"
         checked={checked}
         onChange={(event) => onChange(event.target.checked)}
       />
@@ -280,7 +280,7 @@ export function Segmented<T extends string>({
           aria-checked={value === option.value}
           disabled={option.disabled}
           onClick={() => onChange(option.value)}
-          className={`h-8 min-w-0 flex-1 rounded-md max-md:h-10 px-2.5 text-[13px] font-medium whitespace-nowrap transition-colors duration-150 ease-out disabled:cursor-not-allowed disabled:opacity-40 ${
+          className={`h-8 min-w-0 flex-1 rounded-md px-2.5 text-[13px] max-md:h-10 max-sm:px-1 coarse:h-10 font-medium whitespace-nowrap transition-colors duration-150 ease-out disabled:cursor-not-allowed disabled:opacity-40 ${
             value === option.value ? "bg-panel text-ink shadow-[0_0_0_1px_var(--border-subtle)]" : "text-muted hover:text-ink"
           }`}
         >
@@ -319,7 +319,7 @@ export function SliderField({
       </span>
       <input
         type="range"
-        className="h-5 w-full"
+        className="h-5 w-full max-md:h-10 coarse:h-10"
         min={min}
         max={max}
         step={step}
@@ -396,15 +396,15 @@ export function Modal({
     >
       {open ? (
         <div className="flex max-h-[85dvh] flex-col">
-          <header className="flex items-center justify-between gap-4 border-b border-line px-5 py-3">
+          <header className="flex items-center justify-between gap-4 border-b border-line px-5 py-3 max-sm:px-4">
             <h2 className="text-[15px] font-semibold">{title}</h2>
             <IconButton label="Close" onClick={onClose}>
               <X aria-hidden className="size-4" />
             </IconButton>
           </header>
-          <div className="min-h-0 flex-1 overflow-y-auto px-5 py-4">{children}</div>
+          <div className="min-h-0 flex-1 overflow-y-auto px-5 py-4 max-sm:px-4">{children}</div>
           {footer ? (
-            <footer className="flex justify-end gap-2 border-t border-line px-5 py-3">{footer}</footer>
+            <footer className="flex justify-end gap-2 border-t border-line px-5 py-3 max-sm:px-4">{footer}</footer>
           ) : null}
         </div>
       ) : null}

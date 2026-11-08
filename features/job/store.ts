@@ -42,6 +42,8 @@ type StudioState = Snapshot & {
   selectedGroupId: string | null;
   editingSizeId: string | null;
   view: WorkspaceView;
+  /** Counts requests to open the crop view, so phones can jump to it from any pane. */
+  cropRequests: number;
   manualNotice: boolean;
   past: Snapshot[];
   future: Snapshot[];
@@ -173,6 +175,7 @@ export const useStudio = create<StudioState>()(
         selectedGroupId: null,
         editingSizeId: null,
         view: "sheets",
+        cropRequests: 0,
         manualNotice: false,
         past: [],
         future: [],
@@ -339,7 +342,10 @@ export const useStudio = create<StudioState>()(
         },
 
         setView(view) {
-          set({ view });
+          set((state) => ({
+            view,
+            cropRequests: state.cropRequests + (view === "crop" ? 1 : 0),
+          }));
         },
 
         updateOptions(patch, historyKey) {

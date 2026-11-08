@@ -80,7 +80,7 @@ export function ExportActions() {
     <div className="flex items-center gap-2">
       <Button
         aria-label="Print"
-        className="max-sm:w-11 max-sm:px-0"
+        className="max-lg:w-11 max-lg:px-0"
         disabled={blocker !== null || busy !== null}
         title={blocker ?? undefined}
         onClick={() => setPrintOpen(true)}
@@ -90,17 +90,17 @@ export function ExportActions() {
         ) : (
           <Printer aria-hidden className="size-4" />
         )}
-        <span className="max-sm:hidden">Print</span>
+        <span className="max-lg:hidden">Print</span>
       </Button>
       <Button
         aria-label="Export PNG"
-        className="max-sm:w-11 max-sm:px-0"
+        className="max-lg:w-11 max-lg:px-0"
         disabled={blocker !== null || busy !== null}
         title={blocker ?? undefined}
         onClick={() => setPngOpen(true)}
       >
         <ImageDown aria-hidden className="size-4" />
-        <span className="max-sm:hidden">PNG</span>
+        <span className="max-lg:hidden">PNG</span>
       </Button>
       <Button
         variant="primary"

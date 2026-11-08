@@ -61,7 +61,7 @@ function CropSurface({
 
   return (
     <div className="flex h-full min-h-0 flex-col">
-      <div className="flex flex-wrap items-center justify-between gap-3 border-b border-line bg-panel px-4 py-2.5">
+      <div className="flex flex-wrap items-center justify-between gap-3 border-b border-line bg-panel px-4 py-2.5 short:py-1">
         <div className="min-w-0">
           <p className="truncate text-[13px] font-medium">Editing {group.displayName}</p>
           <p className="text-xs text-muted">
@@ -109,10 +109,10 @@ function CropSurface({
           }}
         />
       </div>
-      <div className="grid gap-4 border-t border-line bg-panel px-4 py-3 sm:grid-cols-[1fr_1fr_auto] sm:items-end">
+      <div className="grid grid-cols-2 items-end gap-x-4 gap-y-1 border-t border-line bg-panel px-4 py-3 short:py-1 sm:grid-cols-[1fr_1fr_auto]">
         <SliderField label="Zoom" value={Number(zoom.toFixed(2))} min={MIN_ZOOM} max={MAX_ZOOM} step={0.01} suffix="×" onChange={setZoom} />
         <SliderField label="Straighten" value={rotation} min={-180} max={180} suffix="°" onChange={setRotation} />
-        <div className="flex gap-1">
+        <div className="col-span-2 flex justify-center gap-1 sm:col-span-1">
           <IconButton label="Rotate 90° left" onClick={() => rotateBy(-90)}>
             <RotateCcw aria-hidden className="size-4" />
           </IconButton>

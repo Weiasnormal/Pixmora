@@ -188,7 +188,7 @@ function PhotoPanelBody({ group, asset }: { group: PhotoGroup; asset: PhotoAsset
                 <Field label="Colour">
                   <input
                     type="color"
-                    className="h-9 w-full rounded-lg border border-line bg-panel p-1"
+                    className="h-9 w-full rounded-lg border border-line bg-panel p-1 max-md:h-11 coarse:h-11"
                     value={recipe.border.color}
                     onChange={(event) => patchBorder({ color: event.target.value })}
                   />

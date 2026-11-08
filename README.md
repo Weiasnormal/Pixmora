@@ -15,11 +15,13 @@ Everything runs in the browser. Photos are not uploaded to a server.
 
 - **Mixed packages on one sheet:** give each photo its own package, such as 2 × 2 in for one customer and 1 × 1 in for the next.
 - **True-size packing:** copies are placed in millimetres, with separate horizontal and vertical gaps down to 0 mm.
-- **Photo editing:** crop, rotate, zoom, adjust brightness and contrast, and add a border, with edits kept separately for each print size.
+- **Photo editing:** crop, rotate, zoom, adjust brightness, contrast, vibrance and temperature, and add a border. Crops stay separate for each print size, and one checkbox applies a photo's colour and background edits to all its sizes.
 - **Background removal:** replace a background using the MODNet model, which runs locally in the browser.
 - **Export:** download a PDF at the exact paper size, or PNG sheets at 150, 300 or 600 DPI. You can also send the PDF straight to the browser's print dialog.
 - **Print quality checks:** get a warning when a crop falls below the minimum DPI.
 - **Printer calibration:** print a calibration sheet, measure it, and save a safe edge inset as a printer profile.
+- **Keyboard shortcuts:** Canva-style keys for undo, duplicate, zoom, crop and export. Press `?` in the Studio to see them all.
+- **Works on any screen:** the Studio adapts from phones to tablets and desktops.
 - **Saved settings:** packages, photo sizes and print defaults are kept in the browser's local storage.
 
 ### Built-in sizes

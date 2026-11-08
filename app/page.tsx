@@ -44,8 +44,13 @@ export default function Home() {
   return (
     <div className="flex min-h-full flex-col">
       <header className="mx-auto flex w-full max-w-6xl items-center justify-between gap-4 px-4 py-4 sm:px-8">
-        <Link href="/" aria-label="Pixmora home">
-          <Logo height={44} priority />
+        <Link href="/" aria-label="Pixmora home" className="shrink-0">
+          <span className="sm:hidden">
+            <Logo variant="icon" height={44} priority />
+          </span>
+          <span className="max-sm:hidden">
+            <Logo height={44} priority />
+          </span>
         </Link>
         <nav className="flex items-center gap-2">
           <Link href="/help" className="rounded-lg px-3 py-2 text-sm font-medium text-muted transition-colors duration-150 hover:text-ink">

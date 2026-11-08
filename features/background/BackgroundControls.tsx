@@ -78,7 +78,7 @@ export function BackgroundControls({
                   aria-pressed={active}
                   title={swatch.label}
                   onClick={() => setBackground({ mode: "solid", color: swatch.color })}
-                  className={`size-8 rounded-lg border border-line ${active ? "ring-2 ring-primary ring-offset-1" : ""}`}
+                  className={`size-8 rounded-lg border border-line max-md:size-11 coarse:size-11 ${active ? "ring-2 ring-primary ring-offset-1" : ""}`}
                   style={{ backgroundColor: swatch.color }}
                 />
               );
@@ -86,7 +86,7 @@ export function BackgroundControls({
             <input
               type="color"
               aria-label="Custom background colour"
-              className="h-8 w-10 rounded-lg border border-line bg-panel p-0.5"
+              className="h-8 w-10 rounded-lg border border-line bg-panel p-0.5 max-md:h-11 max-md:w-14 coarse:h-11 coarse:w-14"
               value={recipe.background.color}
               onChange={(event) => setBackground({ mode: "solid", color: event.target.value })}
             />

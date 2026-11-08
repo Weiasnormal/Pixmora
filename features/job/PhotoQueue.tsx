@@ -119,10 +119,10 @@ function GroupCard({ group, onRemove }: { group: PhotoGroup; onRemove: () => voi
         ) : null}
       </button>
       <div className="flex items-center gap-0.5 px-2 pb-1.5">
-        <label className="mr-auto flex h-8 items-center gap-2 pl-0.5 text-xs text-muted">
+        <label className="mr-auto flex h-8 items-center gap-2 pl-0.5 text-xs text-muted max-md:h-11 coarse:h-11">
           <input
             type="checkbox"
-            className="size-3.5 accent-[var(--brand-primary)]"
+            className="size-3.5 accent-[var(--brand-primary)] max-md:size-5 coarse:size-5"
             checked={group.enabled}
             onChange={(event) => setGroupEnabled(group.id, event.target.checked)}
           />

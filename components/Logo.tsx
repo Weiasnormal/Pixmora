@@ -4,6 +4,7 @@ import Image from "next/image";
 const LOGOS = {
   primary: { src: "/brand/pixmora-logo-primary.webp", ratio: 2172 / 724 },
   stacked: { src: "/brand/pixmora-logo-stacked.webp", ratio: 1 },
+  icon: { src: "/brand/pixmora-icon.webp", ratio: 1 },
 };
 
 export function Logo({

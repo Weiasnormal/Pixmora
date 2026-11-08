@@ -18,14 +18,15 @@ import { ShortcutsDialog } from "./ShortcutsDialog";
 import { useShortcuts } from "./shortcuts";
 
 type RightTab = "photo" | "print";
-type MobileTab = "photos" | "sheet" | "settings";
+type Pane = "photos" | "sheet" | "settings";
+type SidePane = Exclude<Pane, "sheet">;
 
 function JobSummary() {
   const layout = useLayout();
   const groups = useStudio((state) => state.groups.filter((g) => g.enabled).length);
   if (layout.totalItems === 0) return null;
   return (
-    <p className="hidden truncate text-[13px] text-muted tabular-nums md:block" aria-live="polite">
+    <p className="hidden truncate text-[13px] text-muted tabular-nums lg:block" aria-live="polite">
       {layout.totalItems} {layout.totalItems === 1 ? "print" : "prints"} from {groups}{" "}
       {groups === 1 ? "group" : "groups"} | {layout.sheetCount}{" "}
       {layout.sheetCount === 1 ? "sheet" : "sheets"}
@@ -51,30 +52,58 @@ function HistoryButtons() {
   );
 }
 
-function TopBar({ onShortcuts }: { onShortcuts: () => void }) {
+function TopBar({
+  sidePane,
+  onSidePane,
+  onShortcuts,
+}: {
+  sidePane: SidePane;
+  onSidePane: (pane: SidePane) => void;
+  onShortcuts: () => void;
+}) {
   return (
-    <header className="flex h-14 shrink-0 items-center gap-3 border-b border-line bg-panel px-3 sm:px-4">
-      <Link href="/" aria-label="Pixmora home" className="shrink-0">
-        <Logo height={30} />
+    <header className="flex h-14 shrink-0 items-center gap-3 border-b border-line bg-panel px-3 short:h-12 sm:px-4">
+      <Link href="/" aria-label="Pixmora home" className="flex h-11 shrink-0 items-center">
+        <span className="sm:hidden">
+          <Logo variant="icon" height={36} />
+        </span>
+        <span className="max-sm:hidden">
+          <Logo height={30} />
+        </span>
       </Link>
       <div className="min-w-0 flex-1">
         <h1 className="sr-only">Pixmora Studio</h1>
         <JobSummary />
+        <div className="hidden max-w-52 md:block lg:hidden">
+          <Segmented<SidePane>
+            label="Side panel"
+            value={sidePane}
+            options={[
+              { value: "photos", label: "Photos" },
+              { value: "settings", label: "Settings" },
+            ]}
+            onChange={onSidePane}
+          />
+        </div>
       </div>
-      <div className="flex items-center gap-0.5 max-sm:hidden">
-        <HistoryButtons />
-        <IconButton label="Keyboard shortcuts" onClick={onShortcuts}>
-          <Keyboard aria-hidden className="size-4" />
-        </IconButton>
-        <Link
-          href="/help"
-          target="_blank"
-          aria-label="Print guide"
-          title="Print guide"
-          className="inline-flex size-8 items-center justify-center rounded-lg transition-colors duration-150 hover:bg-page"
-        >
-          <CircleHelp aria-hidden className="size-4" />
-        </Link>
+      <div className="flex items-center gap-0.5">
+        <div className="flex items-center gap-0.5 max-md:hidden">
+          <HistoryButtons />
+        </div>
+        <div className="flex items-center gap-0.5 max-sm:hidden">
+          <IconButton label="Keyboard shortcuts" onClick={onShortcuts}>
+            <Keyboard aria-hidden className="size-4" />
+          </IconButton>
+          <Link
+            href="/help"
+            target="_blank"
+            aria-label="Print guide"
+            title="Print guide"
+            className="inline-flex size-8 items-center justify-center rounded-lg transition-colors duration-150 hover:bg-page max-md:size-11 coarse:size-11"
+          >
+            <CircleHelp aria-hidden className="size-4" />
+          </Link>
+        </div>
       </div>
       <ExportActions />
     </header>
@@ -83,7 +112,7 @@ function TopBar({ onShortcuts }: { onShortcuts: () => void }) {
 
 function EmptyState() {
   return (
-    <div className="flex h-full items-center justify-center bg-page p-6">
+    <div className="flex h-full items-center justify-center overflow-y-auto bg-page p-6">
       <div className="flex max-w-sm flex-col items-center text-center">
         <Logo variant="stacked" height={128} />
         <h2 className="mt-6 text-xl font-semibold tracking-tight">Add your first photo</h2>
@@ -155,7 +184,7 @@ export function StudioWorkspace() {
   const undo = useStudio((state) => state.undo);
   const redo = useStudio((state) => state.redo);
   const addPhotos = useAddPhotos();
-  const [mobileTab, setMobileTab] = useState<MobileTab>("sheet");
+  const [pane, setPane] = useState<Pane>("sheet");
   const [shortcutsOpen, setShortcutsOpen] = useState(false);
 
   useEffect(() => {
@@ -168,6 +197,15 @@ export function StudioWorkspace() {
     window.addEventListener("beforeunload", warn);
     return () => window.removeEventListener("beforeunload", warn);
   }, [hasPhotos]);
+
+  // The crop view lives in the sheet pane, so opening it from another pane moves there.
+  useEffect(
+    () =>
+      useStudio.subscribe((state, previous) => {
+        if (state.cropRequests !== previous.cropRequests) setPane("sheet");
+      }),
+    [],
+  );
 
   useShortcuts({
     "mod+z": undo,
@@ -187,7 +225,14 @@ export function StudioWorkspace() {
     void addPhotos([...event.dataTransfer.files]);
   };
 
-  const panel = (tab: MobileTab) => (mobileTab === tab ? "max-md:flex" : "max-md:hidden");
+  // Phones show one pane. Tablets keep the sheet beside one panel. Desktops show all three.
+  const photosPane = pane === "photos" ? "flex" : "hidden lg:flex";
+  const sheetPane = pane === "sheet" ? "flex" : "hidden md:flex";
+  const settingsPane = {
+    settings: "flex",
+    sheet: "hidden md:flex",
+    photos: "hidden lg:flex",
+  }[pane];
 
   return (
     <div
@@ -195,43 +240,48 @@ export function StudioWorkspace() {
       onDragOver={(event) => event.preventDefault()}
       onDrop={onDrop}
     >
-      <TopBar onShortcuts={() => setShortcutsOpen(true)} />
-      <div className="md:hidden">
-        <div className="flex items-center gap-1 border-b border-line bg-panel p-2">
-          <div className="min-w-0 flex-1">
-            <Segmented<MobileTab>
-              label="Studio section"
-              value={mobileTab}
-              options={[
-                { value: "photos", label: "Photos" },
-                { value: "sheet", label: "Sheet" },
-                { value: "settings", label: "Settings" },
-              ]}
-              onChange={setMobileTab}
-            />
-          </div>
-          <HistoryButtons />
-        </div>
-      </div>
+      <TopBar
+        sidePane={pane === "photos" ? "photos" : "settings"}
+        onSidePane={setPane}
+        onShortcuts={() => setShortcutsOpen(true)}
+      />
       <div className="flex min-h-0 flex-1">
         <aside
           aria-label="Photo queue"
-          className={`${panel("photos")} w-full shrink-0 flex-col border-r border-line bg-panel md:flex md:w-68`}
+          className={`${photosPane} w-full shrink-0 flex-col border-line bg-panel md:order-last md:w-72 md:border-l lg:order-first lg:w-64 lg:border-r lg:border-l-0 xl:w-68`}
         >
           <PhotoQueue />
         </aside>
-        <main className={`${panel("sheet")} min-w-0 flex-1 flex-col md:flex`}>
+        <main className={`${sheetPane} min-w-0 flex-1 flex-col`}>
           <div className="min-h-0 w-full flex-1">
             <Center />
           </div>
         </main>
         <aside
           aria-label="Photo and print settings"
-          className={`${panel("settings")} w-full shrink-0 flex-col border-l border-line bg-panel md:flex md:w-75`}
+          className={`${settingsPane} w-full shrink-0 flex-col border-line bg-panel md:order-last md:w-72 md:border-l xl:w-75`}
         >
           <SettingsPanel />
         </aside>
       </div>
+      <nav
+        aria-label="Studio sections"
+        className="flex items-center gap-1 border-t border-line bg-panel p-2 short:py-0.5 md:hidden"
+      >
+        <div className="min-w-0 flex-1">
+          <Segmented<Pane>
+            label="Studio section"
+            value={pane}
+            options={[
+              { value: "photos", label: "Photos" },
+              { value: "sheet", label: "Sheet" },
+              { value: "settings", label: "Settings" },
+            ]}
+            onChange={setPane}
+          />
+        </div>
+        <HistoryButtons />
+      </nav>
       <ShortcutsDialog open={shortcutsOpen} onClose={() => setShortcutsOpen(false)} />
       <Toaster position="top-center" toastOptions={{ className: "text-[13px]" }} />
     </div>

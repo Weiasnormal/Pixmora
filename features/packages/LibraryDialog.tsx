@@ -54,7 +54,7 @@ function PackageEditor({ preset }: { preset: PackagePreset }) {
 
       <ul className="flex flex-col gap-2">
         {preset.items.map((item, index) => (
-          <li key={index} className="grid grid-cols-[1fr_72px_32px] items-center gap-2">
+          <li key={index} className="grid grid-cols-[minmax(0,1fr)_72px_auto] items-center gap-2">
             <SelectField
               ariaLabel="Photo size"
               value={item.photoSizeId}
@@ -170,10 +170,12 @@ function SizeEditor({ size, unit }: { size: PhotoSize; unit: Unit }) {
 
   return (
     <li className="flex flex-col gap-3 rounded-xl border border-line p-3">
-      <div className="grid grid-cols-[1fr_88px_88px_32px] items-end gap-2">
-        <Field label="Name">
-          <TextField value={size.label} onChange={(label) => save({ label })} />
-        </Field>
+      <div className="grid grid-cols-[minmax(0,1fr)_minmax(0,1fr)_auto] items-end gap-2 sm:grid-cols-[minmax(0,1fr)_88px_88px_auto]">
+        <div className="col-span-3 sm:col-span-1">
+          <Field label="Name">
+            <TextField value={size.label} onChange={(label) => save({ label })} />
+          </Field>
+        </div>
         <Field label="Width">
           <NumberField
             value={display(size.widthMm)}
@@ -244,13 +246,15 @@ function ProfileList() {
       </p>
       <ul className="flex flex-col gap-3">
         {profiles.map((profile) => (
-          <li key={profile.id} className="grid grid-cols-[1fr_96px_32px] items-end gap-2 rounded-xl border border-line p-3">
-            <Field label="Printer and paper">
-              <TextField
-                value={profile.name}
-                onChange={(name) => upsertProfile({ ...profile, name })}
-              />
-            </Field>
+          <li key={profile.id} className="grid grid-cols-[minmax(0,1fr)_auto] items-end gap-2 rounded-xl border border-line p-3 sm:grid-cols-[minmax(0,1fr)_96px_auto]">
+            <div className="col-span-2 sm:col-span-1">
+              <Field label="Printer and paper">
+                <TextField
+                  value={profile.name}
+                  onChange={(name) => upsertProfile({ ...profile, name })}
+                />
+              </Field>
+            </div>
             <Field label="Safe inset">
               <NumberField
                 value={profile.insetMm}
