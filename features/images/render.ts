@@ -5,6 +5,7 @@ import type {
   PhotoSize,
 } from "@/features/job/types";
 import { mmToPixels } from "@/features/layout/units";
+import { applyColourShift } from "./colour";
 
 const images = new Map<string, Promise<HTMLImageElement>>();
 
@@ -111,30 +112,48 @@ export async function renderPrint(
   const context = canvas.getContext("2d", { willReadFrequently: false });
   if (!context) throw new Error("This browser could not start image rendering.");
 
-  context.imageSmoothingEnabled = true;
-  context.imageSmoothingQuality = "high";
-
   context.fillStyle = usesSolid ? recipe.background.color : "#FFFFFF";
   context.fillRect(0, 0, width, height);
 
   const adjusted = recipe.brightness !== 100 || recipe.contrast !== 100;
   const hasFilter = typeof context.filter === "string";
+  const toned = recipe.vibrance !== 0 || recipe.temperature !== 0;
+  const needsPixels = toned || (adjusted && !hasFilter);
+
+  // Pixel edits run on their own layer, so a chosen background colour prints exactly as picked.
+  const layer = needsPixels ? document.createElement("canvas") : canvas;
+  layer.width = width;
+  layer.height = height;
+  const photo = needsPixels
+    ? layer.getContext("2d", { willReadFrequently: true })
+    : context;
+  if (!photo) throw new Error("This browser could not start image rendering.");
+
+  photo.imageSmoothingEnabled = true;
+  photo.imageSmoothingQuality = "high";
+
   if (adjusted && hasFilter) {
-    context.filter = `brightness(${recipe.brightness}%) contrast(${recipe.contrast}%)`;
+    photo.filter = `brightness(${recipe.brightness}%) contrast(${recipe.contrast}%)`;
   }
 
   const bounds = rotatedBounds(asset.widthPx, asset.heightPx, recipe.rotationDeg);
-  context.save();
-  context.scale(width / area.width, height / area.height);
-  context.translate(-area.x + bounds.width / 2, -area.y + bounds.height / 2);
-  context.rotate((recipe.rotationDeg * Math.PI) / 180);
-  context.drawImage(image, -asset.widthPx / 2, -asset.heightPx / 2, asset.widthPx, asset.heightPx);
-  context.restore();
+  photo.save();
+  photo.scale(width / area.width, height / area.height);
+  photo.translate(-area.x + bounds.width / 2, -area.y + bounds.height / 2);
+  photo.rotate((recipe.rotationDeg * Math.PI) / 180);
+  photo.drawImage(image, -asset.widthPx / 2, -asset.heightPx / 2, asset.widthPx, asset.heightPx);
+  photo.restore();
 
-  if (adjusted && hasFilter) context.filter = "none";
+  if (adjusted && hasFilter) photo.filter = "none";
   if (adjusted && !hasFilter) {
-    applyPixelAdjustments(context, width, height, recipe.brightness, recipe.contrast);
+    applyPixelAdjustments(photo, width, height, recipe.brightness, recipe.contrast);
   }
+  if (toned) {
+    const frame = photo.getImageData(0, 0, width, height);
+    applyColourShift(frame.data, recipe.vibrance, recipe.temperature);
+    photo.putImageData(frame, 0, 0);
+  }
+  if (needsPixels) context.drawImage(layer, 0, 0);
 
   drawBorder(context, recipe, width, height, size);
   return canvas;

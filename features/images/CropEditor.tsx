@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useId, useState } from "react";
 import Cropper from "react-easy-crop";
 import { RotateCcw, RotateCw } from "lucide-react";
 import { Button, IconButton, SliderField } from "@/components/ui";
@@ -8,6 +8,7 @@ import { createDefaultRecipe } from "@/features/job/defaults";
 import { useSelectedGroup, useStudio } from "@/features/job/store";
 import type { CropArea, EditRecipe, PhotoAsset, PhotoGroup, PhotoSize } from "@/features/job/types";
 import { formatSize } from "@/features/layout/units";
+import { previewSaturation, temperatureGain } from "./colour";
 import { defaultCropArea } from "./render";
 
 function sameArea(a: CropArea, b: CropArea): boolean {
@@ -35,8 +36,10 @@ function CropSurface({
   const [pan, setPan] = useState(recipe.pan);
   const [zoom, setZoom] = useState(recipe.zoom);
   const [rotation, setRotation] = useState(recipe.rotationDeg);
+  const temperatureFilterId = useId();
 
   const usesCutout = recipe.background.mode === "solid" && asset.cutoutUrl;
+  const warmth = temperatureGain(recipe.temperature);
 
   return (
     <div className="flex h-full min-h-0 flex-col">
@@ -52,6 +55,15 @@ function CropSurface({
         </Button>
       </div>
       <div className="relative min-h-0 flex-1 bg-dark">
+        {/* The live preview for temperature. Sheets and exports use the pixel renderer. */}
+        <svg aria-hidden className="absolute size-0">
+          <filter id={temperatureFilterId} colorInterpolationFilters="sRGB">
+            <feColorMatrix
+              type="matrix"
+              values={`${1 + warmth} 0 0 0 0  0 1 0 0 0  0 0 ${1 - warmth} 0 0  0 0 0 1 0`}
+            />
+          </filter>
+        </svg>
         <Cropper
           image={usesCutout ? asset.cutoutUrl : asset.url}
           crop={pan}
@@ -63,7 +75,7 @@ function CropSurface({
           objectFit="contain"
           style={{
             mediaStyle: {
-              filter: `brightness(${recipe.brightness}%) contrast(${recipe.contrast}%)`,
+              filter: `brightness(${recipe.brightness}%) contrast(${recipe.contrast}%) url(#${temperatureFilterId}) saturate(${previewSaturation(recipe.vibrance)})`,
               backgroundColor: usesCutout ? recipe.background.color : undefined,
             },
           }}

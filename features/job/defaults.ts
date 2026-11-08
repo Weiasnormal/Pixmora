@@ -97,6 +97,8 @@ export function createDefaultRecipe(): EditRecipe {
     area: null,
     brightness: 100,
     contrast: 100,
+    vibrance: 0,
+    temperature: 0,
     background: { mode: "keep", color: "#FFFFFF" },
     border: { enabled: false, style: "solid", widthMm: 0.3, color: "#202020" },
   };

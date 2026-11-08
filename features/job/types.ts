@@ -71,6 +71,10 @@ export type EditRecipe = {
   area: CropArea | null;
   brightness: number;
   contrast: number;
+  /** -100 to 100. Lifts muted colours more than vivid ones. */
+  vibrance: number;
+  /** -100 (cooler) to 100 (warmer). */
+  temperature: number;
   background: PhotoBackground;
   border: PhotoBorder;
 };

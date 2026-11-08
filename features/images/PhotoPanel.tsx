@@ -111,6 +111,22 @@ function PhotoPanelBody({ group, asset }: { group: PhotoGroup; asset: PhotoAsset
             suffix="%"
             onChange={(contrast) => updateRecipe(group.id, sizeId, { contrast }, "contrast")}
           />
+          <SliderField
+            label="Vibrance"
+            value={recipe.vibrance}
+            min={-100}
+            max={100}
+            onChange={(vibrance) => updateRecipe(group.id, sizeId, { vibrance }, "vibrance")}
+          />
+          <SliderField
+            label="Temperature"
+            value={recipe.temperature}
+            min={-100}
+            max={100}
+            onChange={(temperature) =>
+              updateRecipe(group.id, sizeId, { temperature }, "temperature")
+            }
+          />
         </div>
       ) : null}
 
