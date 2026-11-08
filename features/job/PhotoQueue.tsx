@@ -164,17 +164,7 @@ export function PhotoQueue() {
       </div>
       <ul className="flex min-h-0 flex-1 flex-col gap-2 overflow-y-auto px-4 pb-4">
         {groups.map((group) => (
-          <GroupCard
-            key={group.id}
-            group={group}
-            onRemove={() => {
-              if (Object.keys(group.editsByPhotoSize).length > 0) {
-                setRemoving(group);
-              } else {
-                removeGroup(group.id);
-              }
-            }}
-          />
+          <GroupCard key={group.id} group={group} onRemove={() => setRemoving(group)} />
         ))}
       </ul>
       {groups.length > 0 ? (
@@ -188,7 +178,7 @@ export function PhotoQueue() {
       <ConfirmDialog
         open={removing !== null}
         title={`Remove ${removing?.displayName ?? "photo"}?`}
-        body="This photo has edits. Its copies will leave the layout. Other photos stay as they are."
+        body="Its copies leave the layout. Other photos stay as they are, and Undo brings this one back."
         confirmLabel="Remove photo"
         onConfirm={() => removing && removeGroup(removing.id)}
         onClose={() => setRemoving(null)}

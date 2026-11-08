@@ -16,7 +16,7 @@ import {
   Toggle,
 } from "@/components/ui";
 import { createId, useStudio } from "@/features/job/store";
-import type { PackagePreset, PhotoSize } from "@/features/job/types";
+import type { PackagePreset, PhotoSize, PrinterProfile } from "@/features/job/types";
 import { MM_PER_INCH, inchesToMm, mmToInches } from "@/features/layout/units";
 
 type Unit = "mm" | "in";
@@ -158,6 +158,7 @@ function SizeEditor({ size, unit }: { size: PhotoSize; unit: Unit }) {
   const groups = useStudio((state) => state.groups);
   const upsertSize = useStudio((state) => state.upsertSize);
   const removeSize = useStudio((state) => state.removeSize);
+  const [confirming, setConfirming] = useState(false);
 
   const save = (patch: Partial<PhotoSize>) => upsertSize({ ...size, ...patch });
   const display = (mm: number) => (unit === "mm" ? mm : Number(mmToInches(mm).toFixed(4)));
@@ -195,7 +196,7 @@ function SizeEditor({ size, unit }: { size: PhotoSize; unit: Unit }) {
             if (inUse) {
               toast.error(`${size.label} is used by a package or photo. Remove it there first.`);
             } else {
-              removeSize(size.id);
+              setConfirming(true);
             }
           }}
         >
@@ -216,6 +217,15 @@ function SizeEditor({ size, unit }: { size: PhotoSize; unit: Unit }) {
           </Button>
         ) : null}
       </div>
+
+      <ConfirmDialog
+        open={confirming}
+        title={`Delete ${size.label}?`}
+        body="This size is removed from your saved list."
+        confirmLabel="Delete size"
+        onConfirm={() => removeSize(size.id)}
+        onClose={() => setConfirming(false)}
+      />
     </li>
   );
 }
@@ -224,6 +234,7 @@ function ProfileList() {
   const profiles = useStudio((state) => state.library.profiles);
   const upsertProfile = useStudio((state) => state.upsertProfile);
   const removeProfile = useStudio((state) => state.removeProfile);
+  const [deleting, setDeleting] = useState<PrinterProfile | null>(null);
 
   return (
     <div className="flex flex-col gap-3">
@@ -247,7 +258,7 @@ function ProfileList() {
                 onCommit={(insetMm) => upsertProfile({ ...profile, insetMm })}
               />
             </Field>
-            <IconButton label={`Delete ${profile.name}`} onClick={() => removeProfile(profile.id)}>
+            <IconButton label={`Delete ${profile.name}`} onClick={() => setDeleting(profile)}>
               <Trash2 aria-hidden className="size-4" />
             </IconButton>
           </li>
@@ -261,6 +272,15 @@ function ProfileList() {
         <Plus aria-hidden className="size-4" />
         Add printer profile
       </Button>
+
+      <ConfirmDialog
+        open={deleting !== null}
+        title={`Delete ${deleting?.name ?? "printer profile"}?`}
+        body="This profile and its saved inset are removed. Jobs using it go back to no profile."
+        confirmLabel="Delete profile"
+        onConfirm={() => deleting && removeProfile(deleting.id)}
+        onClose={() => setDeleting(null)}
+      />
     </div>
   );
 }

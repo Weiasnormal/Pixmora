@@ -3,7 +3,7 @@
 import { useEffect, useRef, useState, type KeyboardEvent, type PointerEvent } from "react";
 import { ChevronLeft, ChevronRight, Minus, Plus } from "lucide-react";
 import { toast } from "sonner";
-import { Button, IconButton, Notice } from "@/components/ui";
+import { Button, ConfirmDialog, IconButton, Notice } from "@/components/ui";
 import { imageKey } from "@/features/export/pdf";
 import { useStudio } from "@/features/job/store";
 import type { Placement, SheetBounds } from "@/features/job/types";
@@ -244,6 +244,7 @@ export function SheetPreview() {
   const [frame, setFrame] = useState({ width: 0, height: 0 });
   const [zoomIndex, setZoomIndex] = useState(0);
   const [requestedSheet, setRequestedSheet] = useState(0);
+  const [confirmingReset, setConfirmingReset] = useState(false);
 
   useEffect(() => {
     const element = frameRef.current;
@@ -296,7 +297,7 @@ export function SheetPreview() {
         </p>
         <div className="flex items-center gap-1">
           {hasManual ? (
-            <Button variant="ghost" size="sm" onClick={resetManualPlacements}>
+            <Button variant="ghost" size="sm" onClick={() => setConfirmingReset(true)}>
               Reset to optimized
             </Button>
           ) : null}
@@ -370,6 +371,15 @@ export function SheetPreview() {
           ) : null}
         </div>
       </div>
+
+      <ConfirmDialog
+        open={confirmingReset}
+        title="Reset to the optimized layout?"
+        body="Prints you moved by hand go back to their optimized spots. Undo brings your moves back."
+        confirmLabel="Reset layout"
+        onConfirm={resetManualPlacements}
+        onClose={() => setConfirmingReset(false)}
+      />
     </div>
   );
 }

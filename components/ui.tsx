@@ -385,7 +385,10 @@ export function Modal({
   return (
     <dialog
       ref={ref}
-      onClose={onClose}
+      // React bubbles this event, so a confirm nested in a dialog would close both.
+      onClose={(event) => {
+        if (event.target === event.currentTarget) onClose();
+      }}
       aria-label={title}
       className={`m-auto max-h-[85dvh] w-[calc(100vw-32px)] overflow-hidden rounded-2xl bg-panel p-0 text-ink shadow-xl ${
         wide ? "max-w-3xl" : "max-w-md"
