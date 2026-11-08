@@ -8,8 +8,13 @@ import { resolveRecipe } from "@/features/job/recipe";
 import { useSelectedGroup, useStudio } from "@/features/job/store";
 import type { CropArea, EditRecipe, PhotoAsset, PhotoGroup, PhotoSize } from "@/features/job/types";
 import { formatSize } from "@/features/layout/units";
+import { useShortcuts } from "@/features/studio/shortcuts";
 import { previewSaturation, temperatureGain } from "./colour";
 import { defaultCropArea } from "./render";
+
+const MIN_ZOOM = 1;
+const MAX_ZOOM = 6;
+const ZOOM_STEP = 0.25;
 
 function sameArea(a: CropArea, b: CropArea): boolean {
   return (
@@ -41,6 +46,19 @@ function CropSurface({
   const usesCutout = recipe.background.mode === "solid" && asset.cutoutUrl;
   const warmth = temperatureGain(recipe.temperature);
 
+  const rotateBy = (degrees: number) => setRotation(((rotation + degrees + 540) % 360) - 180);
+  const zoomBy = (step: number) =>
+    setZoom(Math.min(MAX_ZOOM, Math.max(MIN_ZOOM, zoom + step)));
+
+  useShortcuts({
+    r: () => rotateBy(90),
+    "shift+r": () => rotateBy(-90),
+    "mod+=": () => zoomBy(ZOOM_STEP),
+    "mod++": () => zoomBy(ZOOM_STEP),
+    "mod+-": () => zoomBy(-ZOOM_STEP),
+    "mod+0": () => setZoom(MIN_ZOOM),
+  });
+
   return (
     <div className="flex h-full min-h-0 flex-col">
       <div className="flex flex-wrap items-center justify-between gap-3 border-b border-line bg-panel px-4 py-2.5">
@@ -70,8 +88,8 @@ function CropSurface({
           zoom={zoom}
           rotation={rotation}
           aspect={size.widthMm / size.heightMm}
-          minZoom={1}
-          maxZoom={6}
+          minZoom={MIN_ZOOM}
+          maxZoom={MAX_ZOOM}
           objectFit="contain"
           style={{
             mediaStyle: {
@@ -92,13 +110,13 @@ function CropSurface({
         />
       </div>
       <div className="grid gap-4 border-t border-line bg-panel px-4 py-3 sm:grid-cols-[1fr_1fr_auto] sm:items-end">
-        <SliderField label="Zoom" value={Number(zoom.toFixed(2))} min={1} max={6} step={0.01} suffix="×" onChange={setZoom} />
+        <SliderField label="Zoom" value={Number(zoom.toFixed(2))} min={MIN_ZOOM} max={MAX_ZOOM} step={0.01} suffix="×" onChange={setZoom} />
         <SliderField label="Straighten" value={rotation} min={-180} max={180} suffix="°" onChange={setRotation} />
         <div className="flex gap-1">
-          <IconButton label="Rotate 90° left" onClick={() => setRotation(((rotation - 90 + 540) % 360) - 180)}>
+          <IconButton label="Rotate 90° left" onClick={() => rotateBy(-90)}>
             <RotateCcw aria-hidden className="size-4" />
           </IconButton>
-          <IconButton label="Rotate 90° right" onClick={() => setRotation(((rotation + 90 + 540) % 360) - 180)}>
+          <IconButton label="Rotate 90° right" onClick={() => rotateBy(90)}>
             <RotateCw aria-hidden className="size-4" />
           </IconButton>
         </div>

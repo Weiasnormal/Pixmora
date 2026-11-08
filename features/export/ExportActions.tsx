@@ -6,6 +6,7 @@ import { toast } from "sonner";
 import { Button, Field, Modal, Notice, SelectField } from "@/components/ui";
 import { useStudio } from "@/features/job/store";
 import { useLayout } from "@/features/layout/useLayout";
+import { useShortcuts } from "@/features/studio/shortcuts";
 import {
   DEFAULT_EXPORT_DPI,
   downloadPdf,
@@ -57,6 +58,24 @@ export function ExportActions() {
     }
   };
 
+  const exportPdf = () =>
+    run("pdf", async () => `PDF ${await downloadPdf(snapshot())} is ready.`);
+
+  /** Shortcuts reach this even while the buttons are disabled, so they explain why. */
+  const whenReady = (action: () => void) => () => {
+    if (blocker) {
+      toast.error(blocker);
+    } else if (busy === null) {
+      action();
+    }
+  };
+
+  useShortcuts({
+    "mod+s": whenReady(() => void exportPdf()),
+    "mod+shift+s": whenReady(() => setPngOpen(true)),
+    "mod+p": whenReady(() => setPrintOpen(true)),
+  });
+
   return (
     <div className="flex items-center gap-2">
       <Button
@@ -87,9 +106,7 @@ export function ExportActions() {
         variant="primary"
         disabled={blocker !== null || busy !== null}
         title={blocker ?? undefined}
-        onClick={() =>
-          run("pdf", async () => `PDF ${await downloadPdf(snapshot())} is ready.`)
-        }
+        onClick={() => void exportPdf()}
       >
         {busy === "pdf" ? (
           <Loader2 aria-hidden className="size-4 animate-spin" />

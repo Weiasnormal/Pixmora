@@ -7,6 +7,7 @@ import { Button, ConfirmDialog, IconButton, Notice } from "@/components/ui";
 import { imageKey } from "@/features/export/pdf";
 import { useStudio } from "@/features/job/store";
 import type { Placement, SheetBounds } from "@/features/job/types";
+import { useShortcuts } from "@/features/studio/shortcuts";
 import { formatSize } from "./units";
 import { usePrintImages } from "./usePrintImages";
 import { useLayout } from "./useLayout";
@@ -268,6 +269,18 @@ export function SheetPreview() {
   const groupNames = Object.fromEntries(groups.map((g) => [g.id, g.displayName]));
   const sizeLabels = Object.fromEntries(sizes.map((s) => [s.id, s.label]));
   const hasManual = Object.keys(manual).length > 0;
+
+  const zoomIn = () => setZoomIndex(Math.min(zoomIndex + 1, ZOOM_STEPS.length - 1));
+  const zoomOut = () => setZoomIndex(Math.max(zoomIndex - 1, 0));
+
+  useShortcuts({
+    "mod+=": zoomIn,
+    "mod++": zoomIn,
+    "mod+-": zoomOut,
+    "mod+0": () => setZoomIndex(0),
+    pageup: () => setRequestedSheet(Math.max(sheetIndex - 1, 0)),
+    pagedown: () => setRequestedSheet(clampIndex(sheetIndex + 1, layout.sheetCount)),
+  });
 
   return (
     <div className="flex h-full min-h-0 flex-col">

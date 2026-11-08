@@ -6,6 +6,7 @@ import { toast } from "sonner";
 import { Button, ConfirmDialog, IconButton } from "@/components/ui";
 import { ACCEPTED_TYPES, importPhoto } from "@/features/images/importPhotos";
 import { useGroupQuality } from "@/features/images/quality";
+import { useShortcuts } from "@/features/studio/shortcuts";
 import { countGroupPrints } from "./expand";
 import { useStudio } from "./store";
 import type { PhotoGroup } from "./types";
@@ -24,10 +25,19 @@ export function useAddPhotos() {
   };
 }
 
-export function AddPhotoButton({ variant = "secondary" }: { variant?: "primary" | "secondary" }) {
+export function AddPhotoButton({
+  variant = "secondary",
+  shortcut = false,
+}: {
+  variant?: "primary" | "secondary";
+  /** Only one button on the page takes the shortcut, or the file picker opens twice. */
+  shortcut?: boolean;
+}) {
   const inputRef = useRef<HTMLInputElement>(null);
   const addPhotos = useAddPhotos();
   const count = useStudio((state) => state.groups.length);
+
+  useShortcuts(shortcut ? { "mod+o": () => inputRef.current?.click() } : {});
 
   return (
     <>
@@ -143,8 +153,16 @@ export function PhotoQueue() {
   const packages = useStudio((state) => state.library.packages);
   const removeGroup = useStudio((state) => state.removeGroup);
   const clearJob = useStudio((state) => state.clearJob);
+  const selected = useStudio(
+    (state) => state.groups.find((g) => g.id === state.selectedGroupId) ?? null,
+  );
   const [removing, setRemoving] = useState<PhotoGroup | null>(null);
   const [clearing, setClearing] = useState(false);
+
+  const removeSelected = () => {
+    if (selected) setRemoving(selected);
+  };
+  useShortcuts({ delete: removeSelected, backspace: removeSelected });
 
   const total = groups
     .filter((g) => g.enabled)
@@ -160,7 +178,7 @@ export function PhotoQueue() {
         </span>
       </div>
       <div className="px-4 pb-3">
-        <AddPhotoButton />
+        <AddPhotoButton shortcut />
       </div>
       <ul className="flex min-h-0 flex-1 flex-col gap-2 overflow-y-auto px-4 pb-4">
         {groups.map((group) => (

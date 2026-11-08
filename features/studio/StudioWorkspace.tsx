@@ -2,7 +2,7 @@
 
 import { useEffect, useState, type DragEvent } from "react";
 import Link from "next/link";
-import { CircleHelp, Redo2, Undo2 } from "lucide-react";
+import { CircleHelp, Keyboard, Redo2, Undo2 } from "lucide-react";
 import { Toaster } from "sonner";
 import { Logo } from "@/components/Logo";
 import { IconButton, Segmented } from "@/components/ui";
@@ -14,6 +14,8 @@ import { useStudio } from "@/features/job/store";
 import { SheetPreview } from "@/features/layout/SheetPreview";
 import { useLayout } from "@/features/layout/useLayout";
 import { PrintSetupPanel } from "@/features/settings/PrintSetupPanel";
+import { ShortcutsDialog } from "./ShortcutsDialog";
+import { useShortcuts } from "./shortcuts";
 
 type RightTab = "photo" | "print";
 type MobileTab = "photos" | "sheet" | "settings";
@@ -49,7 +51,7 @@ function HistoryButtons() {
   );
 }
 
-function TopBar() {
+function TopBar({ onShortcuts }: { onShortcuts: () => void }) {
   return (
     <header className="flex h-14 shrink-0 items-center gap-3 border-b border-line bg-panel px-3 sm:px-4">
       <Link href="/" aria-label="Pixmora home" className="shrink-0">
@@ -61,6 +63,9 @@ function TopBar() {
       </div>
       <div className="flex items-center gap-0.5 max-sm:hidden">
         <HistoryButtons />
+        <IconButton label="Keyboard shortcuts" onClick={onShortcuts}>
+          <Keyboard aria-hidden className="size-4" />
+        </IconButton>
         <Link
           href="/help"
           target="_blank"
@@ -122,12 +127,36 @@ function Center() {
   return view === "crop" ? <CropEditor /> : <SheetPreview />;
 }
 
+function selectNeighbour(step: number) {
+  const { groups, selectedGroupId, select } = useStudio.getState();
+  if (groups.length === 0) return;
+  const index = groups.findIndex((g) => g.id === selectedGroupId);
+  const next = (index + step + groups.length) % groups.length;
+  select(groups[next].id);
+}
+
+function toggleCrop() {
+  const { groups, view, setView } = useStudio.getState();
+  if (groups.length > 0) setView(view === "crop" ? "sheets" : "crop");
+}
+
+function leaveCrop() {
+  const { view, setView } = useStudio.getState();
+  if (view === "crop") setView("sheets");
+}
+
+function duplicateSelected() {
+  const { selectedGroupId, duplicateGroup } = useStudio.getState();
+  if (selectedGroupId) duplicateGroup(selectedGroupId);
+}
+
 export function StudioWorkspace() {
   const hasPhotos = useStudio((state) => state.groups.length > 0);
   const undo = useStudio((state) => state.undo);
   const redo = useStudio((state) => state.redo);
   const addPhotos = useAddPhotos();
   const [mobileTab, setMobileTab] = useState<MobileTab>("sheet");
+  const [shortcutsOpen, setShortcutsOpen] = useState(false);
 
   useEffect(() => {
     void useStudio.persist.rehydrate();
@@ -140,21 +169,18 @@ export function StudioWorkspace() {
     return () => window.removeEventListener("beforeunload", warn);
   }, [hasPhotos]);
 
-  useEffect(() => {
-    const onKeyDown = (event: KeyboardEvent) => {
-      const target = event.target as HTMLElement;
-      if (target.matches("input, select, textarea")) return;
-      if (!(event.ctrlKey || event.metaKey) || event.key.toLowerCase() !== "z") return;
-      event.preventDefault();
-      if (event.shiftKey) {
-        redo();
-      } else {
-        undo();
-      }
-    };
-    window.addEventListener("keydown", onKeyDown);
-    return () => window.removeEventListener("keydown", onKeyDown);
-  }, [undo, redo]);
+  useShortcuts({
+    "mod+z": undo,
+    "mod+shift+z": redo,
+    "mod+y": redo,
+    "mod+d": duplicateSelected,
+    "[": () => selectNeighbour(-1),
+    "]": () => selectNeighbour(1),
+    c: toggleCrop,
+    escape: leaveCrop,
+    "?": () => setShortcutsOpen(true),
+    "mod+/": () => setShortcutsOpen(true),
+  });
 
   const onDrop = (event: DragEvent<HTMLDivElement>) => {
     event.preventDefault();
@@ -169,7 +195,7 @@ export function StudioWorkspace() {
       onDragOver={(event) => event.preventDefault()}
       onDrop={onDrop}
     >
-      <TopBar />
+      <TopBar onShortcuts={() => setShortcutsOpen(true)} />
       <div className="md:hidden">
         <div className="flex items-center gap-1 border-b border-line bg-panel p-2">
           <div className="min-w-0 flex-1">
@@ -206,6 +232,7 @@ export function StudioWorkspace() {
           <SettingsPanel />
         </aside>
       </div>
+      <ShortcutsDialog open={shortcutsOpen} onClose={() => setShortcutsOpen(false)} />
       <Toaster position="top-center" toastOptions={{ className: "text-[13px]" }} />
     </div>
   );
