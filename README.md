@@ -1,5 +1,8 @@
 <p align="center">
-  <img src="public/brand/pixmora-logo.webp" alt="Pixmora" height="72">
+  <picture>
+    <source media="(prefers-color-scheme: dark)" srcset="public/brand/pixmora-logo-dark.webp">
+    <img src="public/brand/pixmora-logo-primary.webp" alt="Pixmora" height="72">
+  </picture>
 </p>
 
 <p align="center"><strong>Less Space. More Prints.</strong></p>

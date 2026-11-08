@@ -80,7 +80,7 @@ function EmptyState() {
   return (
     <div className="flex h-full items-center justify-center bg-page p-6">
       <div className="flex max-w-sm flex-col items-center text-center">
-        <Logo height={72} />
+        <Logo variant="stacked" height={128} />
         <h2 className="mt-6 text-xl font-semibold tracking-tight">Add your first photo</h2>
         <p className="mt-2 text-sm leading-relaxed text-muted">
           Drop JPG, PNG or WebP files here. They stay in this browser and are never uploaded.
