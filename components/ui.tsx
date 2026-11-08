@@ -232,6 +232,33 @@ export function Toggle({
   );
 }
 
+export function Checkbox({
+  label,
+  description,
+  checked,
+  onChange,
+}: {
+  label: string;
+  description?: ReactNode;
+  checked: boolean;
+  onChange: (checked: boolean) => void;
+}) {
+  return (
+    <label className="flex items-start gap-2.5">
+      <input
+        type="checkbox"
+        className="mt-0.5 size-4 shrink-0 accent-[var(--brand-primary)]"
+        checked={checked}
+        onChange={(event) => onChange(event.target.checked)}
+      />
+      <span className="min-w-0">
+        <span className="block text-[13px] font-medium text-ink">{label}</span>
+        {description ? <span className="mt-0.5 block text-xs text-muted">{description}</span> : null}
+      </span>
+    </label>
+  );
+}
+
 export function Segmented<T extends string>({
   label,
   value,
@@ -387,6 +414,7 @@ export function ConfirmDialog({
   title,
   body,
   confirmLabel,
+  confirmVariant = "danger",
   onConfirm,
   onClose,
 }: {
@@ -394,6 +422,7 @@ export function ConfirmDialog({
   title: string;
   body: ReactNode;
   confirmLabel: string;
+  confirmVariant?: "danger" | "primary";
   onConfirm: () => void;
   onClose: () => void;
 }) {
@@ -406,7 +435,7 @@ export function ConfirmDialog({
         <>
           <Button onClick={onClose}>Cancel</Button>
           <Button
-            variant="danger"
+            variant={confirmVariant}
             onClick={() => {
               onConfirm();
               onClose();

@@ -1,7 +1,7 @@
 "use client";
 
-import { createDefaultRecipe } from "@/features/job/defaults";
 import { groupSizeIds } from "@/features/job/expand";
+import { resolveRecipe } from "@/features/job/recipe";
 import { useStudio } from "@/features/job/store";
 import type { PhotoGroup } from "@/features/job/types";
 import { effectiveDpi } from "@/features/layout/units";
@@ -18,8 +18,7 @@ export function useGroupQuality(group: PhotoGroup) {
     for (const sizeId of groupSizeIds(group, library.packages)) {
       const size = library.sizes.find((s) => s.id === sizeId);
       if (!size) continue;
-      const recipe = group.editsByPhotoSize[sizeId] ?? createDefaultRecipe();
-      const area = resolveCropArea(asset, recipe, size);
+      const area = resolveCropArea(asset, resolveRecipe(group, sizeId), size);
       lowest = Math.min(lowest, effectiveDpi(area.width, area.height, size.widthMm, size.heightMm));
     }
   }

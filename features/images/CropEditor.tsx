@@ -4,7 +4,7 @@ import { useId, useState } from "react";
 import Cropper from "react-easy-crop";
 import { RotateCcw, RotateCw } from "lucide-react";
 import { Button, IconButton, SliderField } from "@/components/ui";
-import { createDefaultRecipe } from "@/features/job/defaults";
+import { resolveRecipe } from "@/features/job/recipe";
 import { useSelectedGroup, useStudio } from "@/features/job/store";
 import type { CropArea, EditRecipe, PhotoAsset, PhotoGroup, PhotoSize } from "@/features/job/types";
 import { formatSize } from "@/features/layout/units";
@@ -127,7 +127,7 @@ export function CropEditor() {
       group={group}
       asset={asset}
       size={size}
-      recipe={group.editsByPhotoSize[size.id] ?? createDefaultRecipe()}
+      recipe={resolveRecipe(group, size.id)}
     />
   );
 }

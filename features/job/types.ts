@@ -79,6 +79,12 @@ export type EditRecipe = {
   border: PhotoBorder;
 };
 
+/** The colour and background half of a recipe. It can be shared across sizes; a crop cannot. */
+export type PhotoLook = Pick<
+  EditRecipe,
+  "brightness" | "contrast" | "vibrance" | "temperature" | "background"
+>;
+
 export type PhotoSelection =
   | { kind: "package"; packageId: string; sets: number }
   | { kind: "single"; photoSizeId: string; quantity: number };
@@ -89,6 +95,8 @@ export type PhotoGroup = {
   assetId: string;
   selection: PhotoSelection;
   editsByPhotoSize: Record<string, EditRecipe>;
+  /** When set, every size of this group prints with this look instead of its own. */
+  sharedLook?: PhotoLook | null;
   enabled: boolean;
 };
 

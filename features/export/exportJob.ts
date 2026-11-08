@@ -1,5 +1,5 @@
 import { canvasToBlob, renderPrint } from "@/features/images/render";
-import { createDefaultRecipe } from "@/features/job/defaults";
+import { resolveRecipe } from "@/features/job/recipe";
 import type { Library } from "@/features/job/expand";
 import type { PhotoAsset, PhotoGroup, Placement, SheetBounds } from "@/features/job/types";
 import type { StudioLayout } from "@/features/layout/computeLayout";
@@ -56,8 +56,7 @@ async function renderCanvases(snapshot: ExportSnapshot, dpi: number) {
     if (!group || !size || !asset) {
       throw new Error("A photo in this layout is missing. Check the queue and try again.");
     }
-    const recipe = group.editsByPhotoSize[photoSizeId] ?? createDefaultRecipe();
-    canvases.set(key, await renderPrint(asset, recipe, size, dpi));
+    canvases.set(key, await renderPrint(asset, resolveRecipe(group, photoSizeId), size, dpi));
   }
   return canvases;
 }

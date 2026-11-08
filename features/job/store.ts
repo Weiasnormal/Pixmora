@@ -9,9 +9,9 @@ import {
   DEFAULT_PACKAGES,
   DEFAULT_PHOTO_SIZES,
   DEFAULT_PRINTER_PROFILES,
-  createDefaultRecipe,
 } from "./defaults";
 import { groupSizeIds, type Library } from "./expand";
+import { patchRecipe, shareLook, unshareLook } from "./recipe";
 import type {
   EditRecipe,
   LayoutOptions,
@@ -60,6 +60,7 @@ type StudioState = Snapshot & {
     patch: Partial<EditRecipe>,
     historyKey?: string,
   ) => void;
+  setLookShared: (groupId: string, sizeId: string, shared: boolean) => void;
   resetRecipes: (groupId: string) => void;
   setCutout: (assetId: string, cutoutUrl: string | undefined) => void;
 
@@ -283,28 +284,28 @@ export const useStudio = create<StudioState>()(
           commit(
             (state) => ({
               groups: state.groups.map((g) =>
-                g.id === groupId
-                  ? {
-                      ...g,
-                      editsByPhotoSize: {
-                        ...g.editsByPhotoSize,
-                        [sizeId]: {
-                          ...(g.editsByPhotoSize[sizeId] ?? createDefaultRecipe()),
-                          ...patch,
-                        },
-                      },
-                    }
-                  : g,
+                g.id === groupId ? patchRecipe(g, sizeId, patch) : g,
               ),
             }),
             historyKey ? `${historyKey}:${groupId}:${sizeId}` : undefined,
           );
         },
 
+        setLookShared(groupId, sizeId, shared) {
+          commit((state) => ({
+            groups: state.groups.map((g) => {
+              if (g.id !== groupId) return g;
+              return shared
+                ? shareLook(g, sizeId)
+                : unshareLook(g, groupSizeIds(g, state.library.packages));
+            }),
+          }));
+        },
+
         resetRecipes(groupId) {
           commit((state) => ({
             groups: state.groups.map((g) =>
-              g.id === groupId ? { ...g, editsByPhotoSize: {} } : g,
+              g.id === groupId ? { ...g, editsByPhotoSize: {}, sharedLook: null } : g,
             ),
           }));
         },

@@ -4,6 +4,7 @@ import { useState } from "react";
 import { Crop } from "lucide-react";
 import {
   Button,
+  Checkbox,
   ConfirmDialog,
   Field,
   Notice,
@@ -16,8 +17,8 @@ import {
   Toggle,
 } from "@/components/ui";
 import { BackgroundControls } from "@/features/background/BackgroundControls";
-import { createDefaultRecipe } from "@/features/job/defaults";
 import { groupSizeIds } from "@/features/job/expand";
+import { pickLook, resolveRecipe, sameLook } from "@/features/job/recipe";
 import { useSelectedGroup, useStudio } from "@/features/job/store";
 import type { PhotoAsset, PhotoBorder, PhotoGroup } from "@/features/job/types";
 import { PackagePicker } from "@/features/packages/PackagePicker";
@@ -44,14 +45,29 @@ function PhotoPanelBody({ group, asset }: { group: PhotoGroup; asset: PhotoAsset
   const setEditingSize = useStudio((state) => state.setEditingSize);
   const renameGroup = useStudio((state) => state.renameGroup);
   const updateRecipe = useStudio((state) => state.updateRecipe);
+  const setLookShared = useStudio((state) => state.setLookShared);
   const resetRecipes = useStudio((state) => state.resetRecipes);
   const setView = useStudio((state) => state.setView);
   const [confirmingReset, setConfirmingReset] = useState(false);
+  const [confirmingShare, setConfirmingShare] = useState(false);
   const { lowest, isLow, minDpi } = useGroupQuality(group);
   const sizeIds = groupSizeIds(group, library.packages);
   const sizeId = editingSizeId && sizeIds.includes(editingSizeId) ? editingSizeId : sizeIds[0];
   const size = library.sizes.find((s) => s.id === sizeId);
-  const recipe = group.editsByPhotoSize[sizeId] ?? createDefaultRecipe();
+  const recipe = resolveRecipe(group, sizeId);
+  const shared = Boolean(group.sharedLook);
+
+  const toggleShared = (next: boolean) => {
+    const differs = sizeIds.some(
+      (id) => !sameLook(pickLook(resolveRecipe(group, id)), pickLook(recipe)),
+    );
+    // Sharing replaces the other sizes' colours, so that one direction asks first.
+    if (next && differs) {
+      setConfirmingShare(true);
+    } else {
+      setLookShared(group.id, sizeId, next);
+    }
+  };
 
   const patchBorder = (patch: Partial<PhotoBorder>) => {
     updateRecipe(group.id, sizeId, { border: { ...recipe.border, ...patch } }, "border");
@@ -90,6 +106,14 @@ function PhotoPanelBody({ group, asset }: { group: PhotoGroup; asset: PhotoAsset
                 ))}
               </SelectField>
             </Field>
+          ) : null}
+          {sizeIds.length > 1 ? (
+            <Checkbox
+              label="Use these edits on every size"
+              description="Colour and background match across this photo's sizes. Each size keeps its own crop and border."
+              checked={shared}
+              onChange={toggleShared}
+            />
           ) : null}
           <Button onClick={() => setView("crop")}>
             <Crop aria-hidden className="size-4" />
@@ -180,6 +204,15 @@ function PhotoPanelBody({ group, asset }: { group: PhotoGroup; asset: PhotoAsset
           Reset this photo
         </Button>
       </div>
+      <ConfirmDialog
+        open={confirmingShare}
+        title="Use these edits on every size?"
+        body={`Colour and background from ${size?.label ?? "this size"} replace the ones on this photo's other sizes. Crops and borders stay. Undo brings the old edits back.`}
+        confirmLabel="Use on every size"
+        confirmVariant="primary"
+        onConfirm={() => setLookShared(group.id, sizeId, true)}
+        onClose={() => setConfirmingShare(false)}
+      />
       <ConfirmDialog
         open={confirmingReset}
         title="Reset this photo?"

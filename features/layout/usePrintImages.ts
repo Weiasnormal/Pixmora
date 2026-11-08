@@ -2,7 +2,7 @@
 
 import { useEffect, useRef, useState } from "react";
 import { canvasToBlob, renderPrint } from "@/features/images/render";
-import { createDefaultRecipe } from "@/features/job/defaults";
+import { resolveRecipe } from "@/features/job/recipe";
 import { useStudio } from "@/features/job/store";
 import type { Placement } from "@/features/job/types";
 import { imageKey } from "@/features/export/pdf";
@@ -36,7 +36,7 @@ export function usePrintImages(placements: Placement[]): Record<string, string> 
         const asset = group ? assets[group.assetId] : undefined;
         if (!group || !size || !asset) continue;
 
-        const recipe = group.editsByPhotoSize[sizeId] ?? createDefaultRecipe();
+        const recipe = resolveRecipe(group, sizeId);
         const signature = JSON.stringify([recipe, size, asset.url, asset.cutoutUrl]);
         const cached = cache.current.get(key);
         if (cached?.recipe === signature) {
