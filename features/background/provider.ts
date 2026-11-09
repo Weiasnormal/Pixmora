@@ -18,7 +18,8 @@ function loadSegmenter(onProgress: (progress: RemovalProgress) => void): Promise
   segmenter ??= import("@huggingface/transformers")
     .then(({ pipeline }) =>
       pipeline("background-removal", MODEL_ID, {
-        dtype: "q8",
+        // The 8-bit model returns unreliable mattes, so the full-precision one is worth the larger download.
+        dtype: "fp32",
         progress_callback: (event: { status: string; progress?: number }) => {
           if (event.status === "progress") {
             onProgress({ stage: "download", percent: event.progress ?? null });
