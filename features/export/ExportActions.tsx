@@ -77,7 +77,7 @@ export function ExportActions() {
   });
 
   return (
-    <div className="flex items-center gap-2">
+    <div className="flex items-center gap-2" data-guide="export">
       <Button
         aria-label="Print"
         className="max-lg:w-11 max-lg:px-0"

@@ -2,7 +2,7 @@
 
 import { useEffect, useState, type DragEvent } from "react";
 import Link from "next/link";
-import { CircleHelp, Keyboard, Redo2, Undo2 } from "lucide-react";
+import { CircleHelp, Keyboard, MousePointer2, Redo2, Undo2 } from "lucide-react";
 import { Toaster } from "sonner";
 import { Logo } from "@/components/Logo";
 import { IconButton, Segmented } from "@/components/ui";
@@ -14,11 +14,12 @@ import { useStudio } from "@/features/job/store";
 import { SheetPreview } from "@/features/layout/SheetPreview";
 import { useLayout } from "@/features/layout/useLayout";
 import { PrintSetupPanel } from "@/features/settings/PrintSetupPanel";
+import { GuideCursor, useGuideAvailable, type GuidePane } from "./GuideCursor";
 import { ShortcutsDialog } from "./ShortcutsDialog";
 import { useShortcuts } from "./shortcuts";
 
 type RightTab = "photo" | "print";
-type Pane = "photos" | "sheet" | "settings";
+type Pane = GuidePane;
 type SidePane = Exclude<Pane, "sheet">;
 
 function JobSummary() {
@@ -56,11 +57,15 @@ function TopBar({
   sidePane,
   onSidePane,
   onShortcuts,
+  onGuide,
 }: {
   sidePane: SidePane;
   onSidePane: (pane: SidePane) => void;
   onShortcuts: () => void;
+  onGuide: () => void;
 }) {
+  const guideAvailable = useGuideAvailable();
+
   return (
     <header className="flex h-14 shrink-0 items-center gap-3 border-b border-line bg-panel px-3 short:h-12 sm:px-4">
       <Link href="/" aria-label="Pixmora home" className="flex h-11 shrink-0 items-center">
@@ -90,8 +95,13 @@ function TopBar({
         <div className="flex items-center gap-0.5 max-md:hidden">
           <HistoryButtons />
         </div>
+        {guideAvailable ? (
+          <IconButton label="Take the tour" onClick={onGuide}>
+            <MousePointer2 aria-hidden className="size-4" />
+          </IconButton>
+        ) : null}
         <div className="flex items-center gap-0.5 max-sm:hidden">
-          <IconButton label="Keyboard shortcuts" onClick={onShortcuts}>
+          <IconButton label="Keyboard shortcuts" data-guide="shortcuts" onClick={onShortcuts}>
             <Keyboard aria-hidden className="size-4" />
           </IconButton>
           <Link
@@ -131,7 +141,7 @@ function SettingsPanel() {
   const [tab, setTab] = useState<RightTab>("photo");
   return (
     <div className="flex h-full min-h-0 flex-col">
-      <div className="border-b border-line p-3">
+      <div className="border-b border-line p-3" data-guide="settings">
         <Segmented<RightTab>
           label="Settings section"
           value={tab}
@@ -186,6 +196,7 @@ export function StudioWorkspace() {
   const addPhotos = useAddPhotos();
   const [pane, setPane] = useState<Pane>("sheet");
   const [shortcutsOpen, setShortcutsOpen] = useState(false);
+  const [guiding, setGuiding] = useState(false);
 
   useEffect(() => {
     void useStudio.persist.rehydrate();
@@ -244,6 +255,7 @@ export function StudioWorkspace() {
         sidePane={pane === "photos" ? "photos" : "settings"}
         onSidePane={setPane}
         onShortcuts={() => setShortcutsOpen(true)}
+        onGuide={() => setGuiding(true)}
       />
       <div className="flex min-h-0 flex-1">
         <aside
@@ -252,7 +264,7 @@ export function StudioWorkspace() {
         >
           <PhotoQueue />
         </aside>
-        <main className={`${sheetPane} min-w-0 flex-1 flex-col`}>
+        <main data-guide="sheet" className={`${sheetPane} min-w-0 flex-1 flex-col`}>
           <div className="min-h-0 w-full flex-1">
             <Center />
           </div>
@@ -283,6 +295,12 @@ export function StudioWorkspace() {
         <HistoryButtons />
       </nav>
       <ShortcutsDialog open={shortcutsOpen} onClose={() => setShortcutsOpen(false)} />
+      <GuideCursor
+        running={guiding}
+        onRunningChange={setGuiding}
+        pane={pane}
+        onPaneChange={setPane}
+      />
       <Toaster position="top-center" toastOptions={{ className: "text-[13px]" }} />
     </div>
   );

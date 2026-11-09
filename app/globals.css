@@ -77,6 +77,81 @@ dialog::backdrop {
   }
 }
 
+.guide-cursor {
+  position: fixed;
+  top: 0;
+  left: 0;
+  z-index: 60;
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 0.25s ease;
+  will-change: transform;
+}
+
+.guide-cursor.is-on {
+  opacity: 1;
+}
+
+.guide-arrow {
+  display: block;
+  width: 24px;
+  height: 24px;
+}
+
+.guide-bubble {
+  position: absolute;
+  top: 20px;
+  left: 14px;
+  display: grid;
+  gap: 1px;
+  width: max-content;
+  max-width: min(260px, calc(100vw - 32px));
+  padding: 6px 11px 8px;
+  border-radius: 4px 12px 12px;
+  background: var(--brand-primary);
+  color: var(--text-primary);
+  font-size: 13px;
+  line-height: 1.35;
+  opacity: 0;
+  transform: translateY(-4px) scale(0.96);
+  transform-origin: top left;
+  transition:
+    opacity 0.16s ease,
+    transform 0.2s var(--ease-out);
+}
+
+.guide-bubble b {
+  font-size: 11.5px;
+  font-weight: 600;
+}
+
+.guide-bubble.is-open {
+  opacity: 1;
+  transform: none;
+}
+
+.guide-bubble.flip-x {
+  border-radius: 12px 4px 12px 12px;
+  transform-origin: top right;
+}
+
+.guide-bubble.flip-y {
+  top: auto;
+  bottom: 6px;
+  border-radius: 12px 12px 12px 4px;
+}
+
+[data-guide-on] {
+  outline: 2px solid var(--brand-primary);
+  outline-offset: 2px;
+  border-radius: 8px;
+}
+
+main[data-guide-on] {
+  outline-offset: -2px;
+  border-radius: 0;
+}
+
 /* Colour feedback stays; movement goes. */
 @media (prefers-reduced-motion: reduce) {
   button,

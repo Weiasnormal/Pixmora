@@ -53,7 +53,12 @@ export function AddPhotoButton({
           event.target.value = "";
         }}
       />
-      <Button variant={variant} className="w-full" onClick={() => inputRef.current?.click()}>
+      <Button
+        variant={variant}
+        className="w-full"
+        data-guide={shortcut ? "add-photos" : undefined}
+        onClick={() => inputRef.current?.click()}
+      >
         <ImagePlus aria-hidden className="size-4" />
         {count === 0 ? "Add photos" : "Add Another Photo"}
       </Button>
