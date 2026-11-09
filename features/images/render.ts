@@ -122,8 +122,11 @@ export async function renderPrint(
 
   // Pixel edits run on their own layer, so a chosen background colour prints exactly as picked.
   const layer = needsPixels ? document.createElement("canvas") : canvas;
-  layer.width = width;
-  layer.height = height;
+  // Setting a canvas size clears it, so only the new layer is sized; the print keeps its fill.
+  if (needsPixels) {
+    layer.width = width;
+    layer.height = height;
+  }
   const photo = needsPixels
     ? layer.getContext("2d", { willReadFrequently: true })
     : context;
