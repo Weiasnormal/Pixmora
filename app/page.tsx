@@ -1,3 +1,6 @@
+import Image from "next/image";
+import { PrintSheet } from "@/components/PrintSheet";
+import "./homepage.css";
 import Link from "next/link";
 import { ArrowRight } from "lucide-react";
 import { Logo } from "@/components/Logo";
@@ -25,12 +28,7 @@ const STEPS = [
   { title: "Export and print", body: "Download a PDF at the exact paper size, or a 300 DPI PNG." },
 ];
 
-const MEASURES = [
-  { value: "0 mm", label: "Software margin when borderless is on, the default for new jobs" },
-  { value: "0 mm", label: "Smallest gap, set separately for horizontal and vertical spacing" },
-  { value: "300 DPI", label: "Default PNG export, rendered fresh instead of captured from the screen" },
-  { value: "No uploads", label: "Editing, packing and export all run in your browser" },
-];
+
 
 export default function Home() {
   // The preview is the real packing engine's output for the demo job below.
@@ -42,7 +40,7 @@ export default function Home() {
   });
 
   return (
-    <div className="flex min-h-full flex-col">
+    <div className="pix-home flex min-h-full flex-col">
       <header className="mx-auto flex w-full max-w-6xl items-center justify-between gap-4 px-4 py-4 sm:px-8">
         <Link href="/" aria-label="Pixmora home" className="shrink-0">
           <span className="sm:hidden">
@@ -72,9 +70,7 @@ export default function Home() {
               Less Space. More Prints.
             </h1>
             <p className="mt-6 max-w-[52ch] text-lg leading-relaxed text-muted">
-              Pixmora prepares photos and packs them onto shared paper at their exact physical
-              size. Mix customers and packages on one sheet, then print without opening a word
-              processor.
+              Mix customers and photo sizes on one sheet. Pixmora arranges each print at its exact size.
             </p>
             <Link
               href="/studio"
@@ -83,13 +79,11 @@ export default function Home() {
               Open Studio
               <ArrowRight aria-hidden className="size-4" />
             </Link>
+            <p className="privacy">Photos stay in your browser.</p>
           </div>
 
           <figure>
-            <div
-              className="relative w-full bg-panel outline-1 outline-line"
-              style={{ aspectRatio: `${SHEET.widthMm} / ${SHEET.heightMm}` }}
-            >
+            <PrintSheet>
               {demo.placements.map((placement) => (
                 <div
                   key={placement.itemId}
@@ -103,7 +97,7 @@ export default function Home() {
                   }}
                 />
               ))}
-            </div>
+            </PrintSheet>
             <figcaption className="mt-3 text-[13px] text-muted">
               Two customers, {demo.placements.length} prints, one A4 sheet. Packed by the same
               engine the Studio uses.
@@ -117,7 +111,7 @@ export default function Home() {
             <ol className="mt-8 grid gap-x-10 gap-y-8 sm:grid-cols-2 lg:grid-cols-4">
               {STEPS.map((step, index) => (
                 <li key={step.title}>
-                  <span className="text-sm text-muted tabular-nums">{index + 1}</span>
+                  <Image className="step-art" src={`/workflow/step-${index + 1}.svg`} alt="" width={120} height={78} />
                   <h3 className="mt-2 font-semibold">{step.title}</h3>
                   <p className="mt-1.5 text-sm leading-relaxed text-muted">{step.body}</p>
                 </li>
@@ -127,28 +121,31 @@ export default function Home() {
         </section>
 
         <section className="mx-auto w-full max-w-6xl px-4 py-16 sm:px-8">
-          <dl className="divide-y divide-line border-y border-line">
-            {MEASURES.map((measure) => (
-              <div key={measure.label} className="grid gap-1 py-5 sm:grid-cols-[200px_1fr] sm:items-baseline">
-                <dt className="text-xl font-semibold tabular-nums">{measure.value}</dt>
-                <dd className="text-sm leading-relaxed text-muted">{measure.label}</dd>
-              </div>
-            ))}
-          </dl>
-          <p className="mt-8 max-w-[68ch] text-sm leading-relaxed text-muted">
-            Pixmora can create a zero-margin file, but edge-to-edge output depends on your printer,
-            paper and driver settings.{" "}
-            <Link href="/help" className="font-medium text-ink underline underline-offset-2">
-              Read the print guide
-            </Link>
-            .
-          </p>
+          <div className="details">
+            <h2>Print details</h2>
+            <dl>
+            <div>
+            <dt>Borderless file margin</dt>
+            <dd>0 mm</dd>
+            <dd className="note">Edge-to-edge printing depends on your printer, paper and driver settings. <Link href="/help">Print guide</Link>
+            </dd>
+            </div>
+            <div>
+            <dt>Minimum gap</dt>
+            <dd>0 mm</dd>
+            </div>
+            <div>
+            <dt>Default PNG resolution</dt>
+            <dd>300 DPI</dd>
+            </div>
+            </dl>
+            </div>
         </section>
       </main>
 
       <footer className="border-t border-line">
         <div className="mx-auto flex w-full max-w-6xl flex-wrap items-center justify-between gap-4 px-4 py-6 text-[13px] text-muted sm:px-8">
-          <span>Pixmora: photo preparation and print layout.</span>
+          <span className="footer-brand"><Logo variant="icon" height={32} />Photo preparation and print layout.</span>
           <span className="flex items-center gap-2" aria-hidden>
             <span className="size-2 rounded-full bg-cyan" />
             <span className="size-2 rounded-full bg-magenta" />
