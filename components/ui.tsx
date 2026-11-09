@@ -247,7 +247,7 @@ export function Checkbox({
     <label className="flex items-start gap-2.5">
       <input
         type="checkbox"
-        className="mt-0.5 size-4 shrink-0 accent-[var(--brand-primary)] coarse:size-5"
+        className="mt-0.5 size-4 shrink-0 accent-primary coarse:size-5"
         checked={checked}
         onChange={(event) => onChange(event.target.checked)}
       />
