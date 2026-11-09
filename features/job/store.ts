@@ -24,7 +24,7 @@ import type {
   PrinterProfile,
 } from "./types";
 
-export type WorkspaceView = "sheets" | "crop";
+export type WorkspaceView = "sheets" | "crop" | "touchup";
 
 type Snapshot = {
   groups: PhotoGroup[];
@@ -42,7 +42,7 @@ type StudioState = Snapshot & {
   selectedGroupId: string | null;
   editingSizeId: string | null;
   view: WorkspaceView;
-  /** Counts requests to open the crop view, so phones can jump to it from any pane. */
+  /** Counts requests to open the crop or touch-up view, so phones can jump to it from any pane. */
   cropRequests: number;
   manualNotice: boolean;
   past: Snapshot[];
@@ -344,7 +344,7 @@ export const useStudio = create<StudioState>()(
         setView(view) {
           set((state) => ({
             view,
-            cropRequests: state.cropRequests + (view === "crop" ? 1 : 0),
+            cropRequests: state.cropRequests + (view === "sheets" ? 0 : 1),
           }));
         },
 

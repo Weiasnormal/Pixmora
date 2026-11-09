@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { Loader2, Sparkles } from "lucide-react";
+import { Brush, Loader2, Sparkles } from "lucide-react";
 import { toast } from "sonner";
 import { Button, Modal, SectionTitle } from "@/components/ui";
 import { useStudio } from "@/features/job/store";
@@ -30,6 +30,7 @@ export function BackgroundControls({
 }) {
   const updateRecipe = useStudio((state) => state.updateRecipe);
   const setCutout = useStudio((state) => state.setCutout);
+  const setView = useStudio((state) => state.setView);
   const [progress, setProgress] = useState<RemovalProgress | null>(null);
   const [consentOpen, setConsentOpen] = useState(false);
 
@@ -91,6 +92,10 @@ export function BackgroundControls({
               onChange={(event) => setBackground({ mode: "solid", color: event.target.value })}
             />
           </div>
+          <Button onClick={() => setView("touchup")}>
+            <Brush aria-hidden className="size-4" />
+            Touch up edges
+          </Button>
           <Button
             size="sm"
             variant="ghost"
@@ -119,6 +124,12 @@ export function BackgroundControls({
           {progress ? status : "Remove background"}
         </Button>
       )}
+      {!asset.cutoutUrl ? (
+        <Button size="sm" variant="ghost" disabled={progress !== null} onClick={() => setView("touchup")}>
+          <Brush aria-hidden className="size-4" />
+          Remove by hand
+        </Button>
+      ) : null}
 
       <Modal
         open={consentOpen}

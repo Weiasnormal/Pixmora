@@ -7,6 +7,7 @@ import { Toaster } from "sonner";
 import { Logo } from "@/components/Logo";
 import { IconButton, Segmented } from "@/components/ui";
 import { ExportActions } from "@/features/export/ExportActions";
+import { BackgroundTouchUp } from "@/features/background/BackgroundTouchUp";
 import { CropEditor } from "@/features/images/CropEditor";
 import { PhotoPanel } from "@/features/images/PhotoPanel";
 import { AddPhotoButton, PhotoQueue, useAddPhotos } from "@/features/job/PhotoQueue";
@@ -163,7 +164,16 @@ function Center() {
   const hasPhotos = useStudio((state) => state.groups.length > 0);
   const view = useStudio((state) => state.view);
   if (!hasPhotos) return <EmptyState />;
-  return view === "crop" ? <CropEditor /> : <SheetPreview />;
+  if (view === "crop") return <CropEditor />;
+  if (view === "touchup") return <BackgroundTouchUp />;
+  return <SheetPreview />;
+}
+
+/** Touch-up has its own undo, brush keys and unsaved strokes, so job-wide keys wait. */
+function outsideTouchUp(action: () => void) {
+  return () => {
+    if (useStudio.getState().view !== "touchup") action();
+  };
 }
 
 function selectNeighbour(step: number) {
@@ -219,13 +229,13 @@ export function StudioWorkspace() {
   );
 
   useShortcuts({
-    "mod+z": undo,
-    "mod+shift+z": redo,
-    "mod+y": redo,
-    "mod+d": duplicateSelected,
-    "[": () => selectNeighbour(-1),
-    "]": () => selectNeighbour(1),
-    c: toggleCrop,
+    "mod+z": outsideTouchUp(undo),
+    "mod+shift+z": outsideTouchUp(redo),
+    "mod+y": outsideTouchUp(redo),
+    "mod+d": outsideTouchUp(duplicateSelected),
+    "[": outsideTouchUp(() => selectNeighbour(-1)),
+    "]": outsideTouchUp(() => selectNeighbour(1)),
+    c: outsideTouchUp(toggleCrop),
     escape: leaveCrop,
     "?": () => setShortcutsOpen(true),
     "mod+/": () => setShortcutsOpen(true),

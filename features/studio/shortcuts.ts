@@ -73,6 +73,15 @@ export const SHORTCUT_GROUPS: { title: string; entries: ShortcutEntry[] }[] = [
     ],
   },
   {
+    title: "Background touch-up",
+    entries: [
+      { label: "Erase, restore or move", keys: [["E"], ["R"], ["H"]] },
+      { label: "Smaller or larger brush", keys: [["["], ["]"]] },
+      { label: "Undo or redo a stroke", keys: [["mod", "Z"], ["mod", "Shift", "Z"]] },
+      { label: "Leave touch-up", keys: [["Esc"]] },
+    ],
+  },
+  {
     title: "Sheet",
     entries: [
       { label: "Zoom in", keys: [["mod", "+"]] },

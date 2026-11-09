@@ -165,7 +165,8 @@ export function PhotoQueue() {
   const [clearing, setClearing] = useState(false);
 
   const removeSelected = () => {
-    if (selected) setRemoving(selected);
+    // Delete is an easy slip while brushing, so touch-up never removes the photo.
+    if (selected && useStudio.getState().view !== "touchup") setRemoving(selected);
   };
   useShortcuts({ delete: removeSelected, backspace: removeSelected });
 
