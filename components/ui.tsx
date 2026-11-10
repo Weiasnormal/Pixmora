@@ -8,7 +8,7 @@ import {
   type ButtonHTMLAttributes,
   type ReactNode,
 } from "react";
-import { AlertTriangle, CircleAlert, Info, X } from "lucide-react";
+import { AlertTriangle, ChevronDown, CircleAlert, Info, Minus, Plus, RotateCcw, X } from "lucide-react";
 
 const BUTTON_BASE =
   "inline-flex shrink-0 items-center justify-center gap-2 rounded-lg font-medium whitespace-nowrap transition-[background-color,border-color,transform] duration-150 ease-out active:scale-[0.98] disabled:cursor-not-allowed disabled:opacity-45 disabled:active:scale-100";
@@ -298,6 +298,7 @@ export function SliderField({
   max,
   step = 1,
   suffix = "",
+  defaultValue,
   onChange,
 }: {
   label: string;
@@ -306,18 +307,34 @@ export function SliderField({
   max: number;
   step?: number;
   suffix?: string;
+  /** When given, a reset button appears once the value moves away from it. */
+  defaultValue?: number;
   onChange: (value: number) => void;
 }) {
+  const id = useId();
+  const changed = defaultValue !== undefined && value !== defaultValue;
   return (
-    <label className="flex flex-col gap-1.5">
-      <span className="flex justify-between text-[13px] text-muted">
-        {label}
-        <span className="text-ink tabular-nums">
+    <div className="flex flex-col gap-1.5">
+      <span className="flex items-center gap-2 text-[13px] text-muted">
+        <label htmlFor={id}>{label}</label>
+        {changed ? (
+          <button
+            type="button"
+            aria-label={`Reset ${label.toLowerCase()}`}
+            title={`Reset ${label.toLowerCase()}`}
+            onClick={() => onChange(defaultValue)}
+            className="relative inline-flex size-5 items-center justify-center rounded-md text-muted transition-colors duration-150 after:absolute after:-inset-2.5 hover:bg-page hover:text-ink"
+          >
+            <RotateCcw aria-hidden className="size-3" />
+          </button>
+        ) : null}
+        <span className="ml-auto text-ink tabular-nums">
           {value}
           {suffix}
         </span>
       </span>
       <input
+        id={id}
         type="range"
         className="h-5 w-full max-md:h-10 coarse:h-10"
         min={min}
@@ -326,7 +343,117 @@ export function SliderField({
         value={value}
         onChange={(event) => onChange(Number(event.target.value))}
       />
-    </label>
+    </div>
+  );
+}
+
+/** A whole-number field with − and + buttons, for counts such as sets and copies. */
+export function Stepper({
+  label,
+  value,
+  min = 1,
+  max,
+  onChange,
+}: {
+  label: string;
+  value: number;
+  min?: number;
+  max?: number;
+  onChange: (value: number) => void;
+}) {
+  const clamp = (next: number) => Math.min(Math.max(next, min), max ?? Infinity);
+  return (
+    <div className="flex items-center justify-between gap-3">
+      <span className="text-[13px] text-muted">{label}</span>
+      <div role="group" aria-label={label} className="flex items-center gap-1">
+        <IconButton label={`Fewer ${label.toLowerCase()}`} onClick={() => onChange(clamp(value - 1))}>
+          <Minus aria-hidden className="size-4" />
+        </IconButton>
+        <div className="w-16">
+          <NumberField
+            value={value}
+            min={min}
+            max={max}
+            step={1}
+            integer
+            ariaLabel={label}
+            onCommit={onChange}
+          />
+        </div>
+        <IconButton label={`More ${label.toLowerCase()}`} onClick={() => onChange(clamp(value + 1))}>
+          <Plus aria-hidden className="size-4" />
+        </IconButton>
+      </div>
+    </div>
+  );
+}
+
+/** A panel section that folds to one line, with a summary of its settings beside the title. */
+export function PanelSection({
+  title,
+  summary,
+  open,
+  onToggle,
+  children,
+}: {
+  title: string;
+  summary?: ReactNode;
+  open: boolean;
+  onToggle: () => void;
+  children: ReactNode;
+}) {
+  const id = useId();
+  return (
+    <section className="border-t border-line">
+      <h3>
+        <button
+          type="button"
+          aria-expanded={open}
+          aria-controls={id}
+          onClick={onToggle}
+          className="flex min-h-11 w-full items-center gap-2 px-4 py-2.5 text-left transition-colors duration-150 hover:bg-page"
+        >
+          <span className="shrink-0 text-[13px] font-semibold text-ink">{title}</span>
+          <span className="ml-auto min-w-0 truncate text-xs text-muted">{summary}</span>
+          <ChevronDown
+            aria-hidden
+            className={`size-4 shrink-0 text-muted transition-transform duration-150 ease-out ${open ? "rotate-180" : ""}`}
+          />
+        </button>
+      </h3>
+      {open ? (
+        <div id={id} className="flex flex-col gap-3 px-4 pt-1 pb-4">
+          {children}
+        </div>
+      ) : null}
+    </section>
+  );
+}
+
+/** Larger single-choice options, for picks that need more than a word, such as packages. */
+export function ChoiceCard({
+  checked,
+  onSelect,
+  children,
+  className = "",
+}: {
+  checked: boolean;
+  onSelect: () => void;
+  children: ReactNode;
+  className?: string;
+}) {
+  return (
+    <button
+      type="button"
+      role="radio"
+      aria-checked={checked}
+      onClick={onSelect}
+      className={`flex w-full min-w-0 items-center gap-2.5 rounded-lg border px-3 py-2 text-left transition-colors duration-150 ease-out ${
+        checked ? "border-primary bg-primary-soft" : "border-line bg-panel hover:bg-page"
+      } ${className}`}
+    >
+      {children}
+    </button>
   );
 }
 
