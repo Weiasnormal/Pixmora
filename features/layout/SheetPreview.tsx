@@ -1,6 +1,13 @@
 "use client";
 
-import { useEffect, useRef, useState, type KeyboardEvent, type PointerEvent } from "react";
+import {
+  useEffect,
+  useLayoutEffect,
+  useRef,
+  useState,
+  type KeyboardEvent,
+  type PointerEvent,
+} from "react";
 import { ChevronLeft, ChevronRight, Minus, Plus } from "lucide-react";
 import { toast } from "sonner";
 import { Button, ConfirmDialog, IconButton, Notice } from "@/components/ui";
@@ -17,7 +24,13 @@ const FRAME_PADDING = 32;
 const FRAME_PADDING_NARROW = 12;
 const NARROW_FRAME = 480;
 const SNAP_MM = 1.5;
-const ZOOM_STEPS = [1, 1.5, 2, 3];
+const ZOOM_STEPS = [1, 1.5, 2, 3, 4];
+const MIN_ZOOM = ZOOM_STEPS[0];
+const MAX_ZOOM = ZOOM_STEPS[ZOOM_STEPS.length - 1];
+/** How strongly one unit of wheel movement zooms. A mouse notch is about 22%. */
+const WHEEL_ZOOM_RATE = 0.0025;
+
+const clampZoom = (zoom: number) => Math.min(Math.max(zoom, MIN_ZOOM), MAX_ZOOM);
 
 type Drag = {
   itemId: string;
@@ -167,6 +180,7 @@ function SheetCanvas({
   return (
     <div
       data-testid="sheet"
+      data-sheet
       className="relative shrink-0 bg-panel shadow-[0_0_0_1px_var(--border-subtle)]"
       style={{ width: sheet.widthMm * scale, height: sheet.heightMm * scale }}
     >
@@ -248,7 +262,10 @@ export function SheetPreview() {
 
   const frameRef = useRef<HTMLDivElement>(null);
   const [frame, setFrame] = useState({ width: 0, height: 0 });
-  const [zoomIndex, setZoomIndex] = useState(0);
+  const [zoom, setZoom] = useState(MIN_ZOOM);
+  const zoomRef = useRef(zoom);
+  /** The sheet point under the pointer during a wheel zoom, kept there after the resize. */
+  const anchor = useRef<{ x: number; y: number; fx: number; fy: number } | null>(null);
   const [requestedSheet, setRequestedSheet] = useState(0);
   const [confirmingReset, setConfirmingReset] = useState(false);
 
@@ -268,7 +285,7 @@ export function SheetPreview() {
     Math.max(frame.width - padding * 2, 120) / sheet.widthMm,
     Math.max(frame.height - padding * 2, 120) / sheet.heightMm,
   );
-  const scale = fit * ZOOM_STEPS[zoomIndex];
+  const scale = fit * zoom;
   const sheetIndex = clampIndex(requestedSheet, layout.sheetCount);
   const placements = layout.placements.filter((p) => p.sheetIndex === sheetIndex);
 
@@ -276,14 +293,57 @@ export function SheetPreview() {
   const sizeLabels = Object.fromEntries(sizes.map((s) => [s.id, s.label]));
   const hasManual = Object.keys(manual).length > 0;
 
-  const zoomIn = () => setZoomIndex(Math.min(zoomIndex + 1, ZOOM_STEPS.length - 1));
-  const zoomOut = () => setZoomIndex(Math.max(zoomIndex - 1, 0));
+  // Buttons and keys step through set levels, from wherever the wheel left the zoom.
+  const zoomIn = () => setZoom(ZOOM_STEPS.find((step) => step > zoom + 0.01) ?? MAX_ZOOM);
+  const zoomOut = () =>
+    setZoom([...ZOOM_STEPS].reverse().find((step) => step < zoom - 0.01) ?? MIN_ZOOM);
+
+  useEffect(() => {
+    zoomRef.current = zoom;
+  }, [zoom]);
+
+  // Ctrl or Cmd with the wheel zooms the sheet, as does a trackpad pinch, which browsers send
+  // as a Ctrl wheel. React wheel listeners are passive, so this one is added by hand to stop
+  // the browser zooming the whole page instead.
+  useEffect(() => {
+    const element = frameRef.current;
+    if (!element) return;
+    const onWheel = (event: WheelEvent) => {
+      if (!event.ctrlKey && !event.metaKey) return;
+      event.preventDefault();
+      const sheetBox = element.querySelector("[data-sheet]")?.getBoundingClientRect();
+      if (!sheetBox) return;
+      const unit = event.deltaMode === 1 ? 16 : event.deltaMode === 2 ? element.clientHeight : 1;
+      const next = clampZoom(zoomRef.current * Math.exp(-event.deltaY * unit * WHEEL_ZOOM_RATE));
+      if (next === zoomRef.current) return;
+      anchor.current = {
+        x: event.clientX,
+        y: event.clientY,
+        fx: (event.clientX - sheetBox.left) / sheetBox.width,
+        fy: (event.clientY - sheetBox.top) / sheetBox.height,
+      };
+      zoomRef.current = next;
+      setZoom(next);
+    };
+    element.addEventListener("wheel", onWheel, { passive: false });
+    return () => element.removeEventListener("wheel", onWheel);
+  }, []);
+
+  useLayoutEffect(() => {
+    const element = frameRef.current;
+    const point = anchor.current;
+    anchor.current = null;
+    const sheetBox = element?.querySelector("[data-sheet]")?.getBoundingClientRect();
+    if (!element || !point || !sheetBox) return;
+    element.scrollLeft += sheetBox.left + point.fx * sheetBox.width - point.x;
+    element.scrollTop += sheetBox.top + point.fy * sheetBox.height - point.y;
+  }, [scale]);
 
   useShortcuts({
     "mod+=": zoomIn,
     "mod++": zoomIn,
     "mod+-": zoomOut,
-    "mod+0": () => setZoomIndex(0),
+    "mod+0": () => setZoom(MIN_ZOOM),
     pageup: () => setRequestedSheet(Math.max(sheetIndex - 1, 0)),
     pagedown: () => setRequestedSheet(clampIndex(sheetIndex + 1, layout.sheetCount)),
   });
@@ -322,23 +382,17 @@ export function SheetPreview() {
                 Reset to optimized
               </Button>
             ) : null}
-            <IconButton
-              label="Zoom out"
-              disabled={zoomIndex === 0}
-              onClick={() => setZoomIndex(zoomIndex - 1)}
-            >
-              <Minus aria-hidden className="size-4" />
-            </IconButton>
-            <span className="w-10 text-center text-xs text-muted tabular-nums">
-              {ZOOM_STEPS[zoomIndex] * 100}%
-            </span>
-            <IconButton
-              label="Zoom in"
-              disabled={zoomIndex === ZOOM_STEPS.length - 1}
-              onClick={() => setZoomIndex(zoomIndex + 1)}
-            >
-              <Plus aria-hidden className="size-4" />
-            </IconButton>
+            <div data-guide="zoom" className="flex items-center gap-1 max-sm:gap-0">
+              <IconButton label="Zoom out" disabled={zoom <= MIN_ZOOM} onClick={zoomOut}>
+                <Minus aria-hidden className="size-4" />
+              </IconButton>
+              <span className="w-10 text-center text-xs text-muted tabular-nums">
+                {Math.round(zoom * 100)}%
+              </span>
+              <IconButton label="Zoom in" disabled={zoom >= MAX_ZOOM} onClick={zoomIn}>
+                <Plus aria-hidden className="size-4" />
+              </IconButton>
+            </div>
           </div>
         </div>
       </div>
@@ -389,7 +443,7 @@ export function SheetPreview() {
               sizeLabels={sizeLabels}
               gapX={options.gapXmm}
               gapY={options.gapYmm}
-              zoomed={zoomIndex > 0}
+              zoomed={zoom > MIN_ZOOM}
             />
           ) : null}
         </div>

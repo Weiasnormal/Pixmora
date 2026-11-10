@@ -86,6 +86,7 @@ export const SHORTCUT_GROUPS: { title: string; entries: ShortcutEntry[] }[] = [
     entries: [
       { label: "Zoom in", keys: [["mod", "+"]] },
       { label: "Zoom out", keys: [["mod", "-"]] },
+      { label: "Zoom at the pointer", keys: [["mod", "Scroll"]] },
       { label: "Fit to screen", keys: [["mod", "0"]] },
       { label: "Previous or next sheet", keys: [["Page Up"], ["Page Down"]] },
       { label: "Move focused print 1 mm", keys: [["Arrows"]] },
