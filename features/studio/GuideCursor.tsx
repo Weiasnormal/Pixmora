@@ -2,10 +2,10 @@
 
 import { useEffect, useRef, useSyncExternalStore } from "react";
 import { Button } from "@/components/ui";
+import { useStudio, type PanelTab } from "@/features/job/store";
 
 // The tour is pure motion, so reduced motion skips it.
 const CAPABLE = "(prefers-reduced-motion: no-preference)";
-const SEEN_KEY = "pixmora-guide-seen";
 const EDGE = 16;
 
 export type GuidePane = "photos" | "sheet" | "settings";
@@ -17,50 +17,112 @@ type Step = {
   at?: Anchor;
   /** Small screens hide panes, so a step opens the one holding its target. */
   pane?: GuidePane;
+  /** The right panel tab holding the target. */
+  tab?: PanelTab;
   /** Media query the step needs. */
   when?: string;
   text: string;
 };
 
-// In order. A step is skipped when its target is not on screen.
-const STEPS: Step[] = [
-  {
-    target: '[data-guide="add-photos"]',
-    pane: "photos",
-    at: "below",
-    text: "Start here. Add your photos. They stay in this browser and are never uploaded.",
-  },
-  {
-    target: '[data-guide="sheet"]',
-    pane: "sheet",
-    at: "center",
-    text: "Your sheet fills up here. Every print packs in at its exact size, and you can drag prints around.",
-  },
-  {
-    target: '[data-guide="settings"] [role="radio"]:first-child',
-    pane: "settings",
-    at: "below",
-    text: "Each photo keeps its own package, crop and colours here.",
-  },
-  {
-    target: '[data-guide="settings"] [role="radio"]:last-child',
-    pane: "settings",
-    at: "below",
-    text: "Paper size, gaps and borderless printing are set here.",
-  },
-  {
-    target: '[data-guide="export"]',
-    at: "below",
-    text: "When the sheet looks right, print it or export a PDF or PNG.",
-  },
-  {
-    target: '[data-guide="shortcuts"]',
-    when: "(pointer: fine)",
-    at: "below",
-    text: "Keyboard shortcuts are here, with the print guide beside them.",
-  },
-  { pane: "sheet", text: "That's the tour. Happy printing!" },
-];
+type Tour = {
+  seenKey: string;
+  steps: Step[];
+  /** Puts phones back on the pane they started from. */
+  restorePane: boolean;
+};
+
+// Steps run in order. A step is skipped when its target cannot be shown.
+const SETUP_TOUR: Tour = {
+  seenKey: "pixmora-setup-guide-seen",
+  restorePane: false,
+  steps: [
+    {
+      target: '[data-guide="setup-intro"]',
+      pane: "settings",
+      tab: "packages",
+      at: "below",
+      text: "Welcome to Pixmora. First, set up the packages you sell.",
+    },
+    {
+      target: '[data-guide="examples"] > li:first-child',
+      pane: "settings",
+      tab: "packages",
+      at: "below",
+      text: "These are examples. Choose Use to copy one, then change its sizes and price.",
+    },
+    {
+      target: '[data-guide="new-package"]',
+      pane: "settings",
+      tab: "packages",
+      at: "below",
+      text: "Or build your own package from scratch.",
+    },
+    {
+      target: '[data-guide="setup-done"]',
+      pane: "settings",
+      tab: "packages",
+      at: "below",
+      text: "When your packages are ready, finish here and start adding photos.",
+    },
+    { text: "You can replay this tour any time with the pointer button at the top." },
+  ],
+};
+
+const STUDIO_TOUR: Tour = {
+  seenKey: "pixmora-guide-seen",
+  restorePane: true,
+  steps: [
+    {
+      target: '[data-guide="add-photos"]',
+      pane: "photos",
+      at: "below",
+      text: "Start here. Add your photos. They stay in this browser and are never uploaded.",
+    },
+    {
+      target: '[data-guide="sheet"]',
+      pane: "sheet",
+      at: "center",
+      text: "Your sheet fills up here. Every print packs in at its exact size, and you can drag prints around.",
+    },
+    {
+      target: '[data-guide="zoom"]',
+      pane: "sheet",
+      when: "(pointer: fine)",
+      at: "below",
+      text: "Zoom here, or hold Ctrl and scroll over the sheet.",
+    },
+    {
+      target: '[data-guide="settings"] [role="radio"]:nth-child(1)',
+      pane: "settings",
+      at: "below",
+      text: "Each photo keeps its own package, crop and colours here.",
+    },
+    {
+      target: '[data-guide="settings"] [role="radio"]:nth-child(2)',
+      pane: "settings",
+      at: "below",
+      text: "Paper size, gaps and borderless printing are set here.",
+    },
+    {
+      target: '[data-guide="settings"] [role="radio"]:nth-child(3)',
+      pane: "settings",
+      at: "below",
+      text: "Your packages live here. Change them any time.",
+    },
+    {
+      target: '[data-guide="export"]',
+      at: "below",
+      text: "When the sheet looks right, print it or export a PDF or PNG.",
+    },
+    {
+      target: '[data-guide="shortcuts"]',
+      when: "(pointer: fine)",
+      at: "below",
+      text: "Keyboard shortcuts are here, with the print guide beside them.",
+    },
+    { pane: "sheet", text: "That's the tour. Happy printing!" },
+  ],
+};
 
 function read(key: string) {
   try {
@@ -101,6 +163,7 @@ function runTour(
     live: HTMLElement;
     showPane: (pane: GuidePane) => void;
   },
+  steps: Step[],
   signal: AbortSignal,
 ) {
   const { root, bubble, typed, rest, live, showPane } = parts;
@@ -225,15 +288,18 @@ function runTour(
     await sleep(120);
     root.classList.add("is-on");
     let lit: Element | null = null;
-    for (const step of STEPS) {
+    for (const step of steps) {
       if (signal.aborted) break;
       if (step.when && !window.matchMedia(step.when).matches) continue;
-      if (step.pane) {
-        showPane(step.pane);
+      if (step.pane || step.tab) {
+        if (step.pane) showPane(step.pane);
+        if (step.tab) useStudio.getState().setPanelTab(step.tab);
         await sleep(80); // lets the pane render before its target is measured
         if (signal.aborted) break;
       }
       const element = step.target ? document.querySelector(step.target) : null;
+      // Targets low in a scrolling panel come into view first.
+      if (element && !onScreen(element)) element.scrollIntoView({ block: "nearest" });
       if (step.target && (!element || !onScreen(element))) continue;
       lit?.removeAttribute("data-guide-on");
       lit = null;
@@ -274,7 +340,7 @@ function runTour(
   return finished.finally(() => cancelAnimationFrame(frame));
 }
 
-/** A scripted cursor that walks first-time users through the Studio, typing as it goes. */
+/** A scripted cursor that walks first-time users through setup, then the Studio, typing as it goes. */
 export function GuideCursor({
   running,
   onRunningChange,
@@ -293,21 +359,25 @@ export function GuideCursor({
   const rest = useRef<HTMLSpanElement>(null);
   const live = useRef<HTMLParagraphElement>(null);
   const currentPane = useRef(pane);
+  const hydrated = useStudio((state) => state.hydrated);
+  const setupDone = useStudio((state) => state.setupDone);
+  const tour = setupDone ? STUDIO_TOUR : SETUP_TOUR;
 
   useEffect(() => {
     currentPane.current = pane;
   });
 
-  // Greet once, a beat after the Studio settles. Returning users have the top bar button.
+  // Greet once per tour, a beat after the Studio settles: setup first, then the Studio once
+  // setup is finished. Returning users have the top bar button.
   useEffect(() => {
-    if (!available) return;
+    if (!available || !hydrated) return;
     const timer = window.setTimeout(() => {
-      if (read(SEEN_KEY) || document.querySelector("dialog[open]")) return;
-      write(SEEN_KEY, "1");
+      if (read(tour.seenKey) || document.querySelector("dialog[open]")) return;
+      write(tour.seenKey, "1");
       onRunningChange(true);
     }, 1400);
     return () => window.clearTimeout(timer);
-  }, [available, onRunningChange]);
+  }, [available, hydrated, tour, onRunningChange]);
 
   useEffect(() => {
     if (!running || !available) return;
@@ -327,6 +397,7 @@ export function GuideCursor({
         live: live.current,
         showPane: onPaneChange,
       },
+      tour.steps,
       controller.signal,
     ).then(() => {
       if (!controller.signal.aborted) onRunningChange(false);
@@ -335,9 +406,9 @@ export function GuideCursor({
       document.removeEventListener("pointerdown", stop, true);
       document.removeEventListener("keydown", stop, true);
       controller.abort();
-      onPaneChange(startPane);
+      if (tour.restorePane) onPaneChange(startPane);
     };
-  }, [running, available, onRunningChange, onPaneChange]);
+  }, [running, available, tour, onRunningChange, onPaneChange]);
 
   if (!available) return null;
 
