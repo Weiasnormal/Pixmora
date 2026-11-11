@@ -96,7 +96,7 @@ export default function HelpPage() {
           <h2 className="text-xl font-semibold">Passport and ID photos</h2>
           <p className="mt-4 max-w-[68ch] leading-relaxed text-muted">
             Requirements differ by country and purpose. Check the size with the issuing authority,
-            then set it under Packages and sizes in the Studio. The built-in passport size is only a
+            then set it under Photo sizes in the Studio’s Packages tab. The built-in passport size is only a
             starting value, and Pixmora asks you to confirm it.
           </p>
         </section>

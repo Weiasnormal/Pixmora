@@ -20,6 +20,8 @@ export type PackagePreset = {
   pricePhp: number;
   enabled: boolean;
   items: PackageItem[];
+  /** The example this package was copied from, if any. */
+  exampleId?: string;
   createdAt: number;
   updatedAt: number;
 };

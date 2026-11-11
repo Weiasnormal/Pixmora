@@ -1,14 +1,14 @@
 import { describe, expect, it } from "vitest";
 import {
   DEFAULT_OPTIONS,
-  DEFAULT_PACKAGES,
+  EXAMPLE_PACKAGES,
   DEFAULT_PHOTO_SIZES,
   createDefaultRecipe,
 } from "./defaults";
 import { countGroupPrints, expandPrintItems, resolveSheet } from "./expand";
 import type { PhotoGroup, PhotoSelection } from "./types";
 
-const library = { sizes: DEFAULT_PHOTO_SIZES, packages: DEFAULT_PACKAGES };
+const library = { sizes: DEFAULT_PHOTO_SIZES, packages: EXAMPLE_PACKAGES };
 
 function group(id: string, selection: PhotoSelection): PhotoGroup {
   return {
@@ -45,7 +45,7 @@ describe("expandPrintItems", () => {
   it("multiplies copies by the number of sets", () => {
     const a = group("a", { kind: "package", packageId: "package-1", sets: 3 });
 
-    expect(countGroupPrints(a, DEFAULT_PACKAGES)).toBe(12);
+    expect(countGroupPrints(a, EXAMPLE_PACKAGES)).toBe(12);
   });
 
   it("gives every copy a unique, traceable id", () => {

@@ -31,7 +31,8 @@ export const DEFAULT_PHOTO_SIZES: PhotoSize[] = [
 
 const SEEDED_AT = 0;
 
-export const DEFAULT_PACKAGES: PackagePreset[] = [
+/** Starting points shown during setup. New users begin with no packages of their own. */
+export const EXAMPLE_PACKAGES: PackagePreset[] = [
   {
     id: "package-1",
     name: "Package 1",

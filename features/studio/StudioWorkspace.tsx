@@ -5,21 +5,21 @@ import Link from "next/link";
 import { CircleHelp, Keyboard, MousePointer2, Redo2, Undo2 } from "lucide-react";
 import { Toaster } from "sonner";
 import { Logo } from "@/components/Logo";
-import { IconButton, Segmented } from "@/components/ui";
+import { Button, IconButton, Segmented } from "@/components/ui";
 import { ExportActions } from "@/features/export/ExportActions";
 import { BackgroundTouchUp } from "@/features/background/BackgroundTouchUp";
 import { CropEditor } from "@/features/images/CropEditor";
 import { PhotoPanel } from "@/features/images/PhotoPanel";
 import { AddPhotoButton, PhotoQueue, useAddPhotos } from "@/features/job/PhotoQueue";
-import { useStudio } from "@/features/job/store";
+import { useStudio, type PanelTab } from "@/features/job/store";
 import { SheetPreview } from "@/features/layout/SheetPreview";
 import { useLayout } from "@/features/layout/useLayout";
+import { PackagesPanel } from "@/features/packages/PackagesPanel";
 import { PrintSetupPanel } from "@/features/settings/PrintSetupPanel";
 import { GuideCursor, useGuideAvailable, type GuidePane } from "./GuideCursor";
 import { ShortcutsDialog } from "./ShortcutsDialog";
 import { useShortcuts } from "./shortcuts";
 
-type RightTab = "photo" | "print";
 type Pane = GuidePane;
 type SidePane = Exclude<Pane, "sheet">;
 
@@ -138,32 +138,59 @@ function EmptyState() {
   );
 }
 
-function SettingsPanel() {
-  const [tab, setTab] = useState<RightTab>("photo");
+function SetupState({ onShowPackages }: { onShowPackages: () => void }) {
+  const finishSetup = useStudio((state) => state.finishSetup);
   return (
-    <div className="flex h-full min-h-0 flex-col">
-      <div className="border-b border-line p-3" data-guide="settings">
-        <Segmented<RightTab>
-          label="Settings section"
-          value={tab}
-          options={[
-            { value: "photo", label: "Photo" },
-            { value: "print", label: "Print setup" },
-          ]}
-          onChange={setTab}
-        />
-      </div>
-      <div className="min-h-0 flex-1 overflow-y-auto">
-        {tab === "photo" ? <PhotoPanel /> : <PrintSetupPanel />}
+    <div className="flex h-full items-center justify-center overflow-y-auto bg-page p-6">
+      <div className="flex max-w-sm flex-col items-center text-center">
+        <Logo variant="stacked" height={128} />
+        <h2 className="mt-6 text-xl font-semibold tracking-tight">Set up your packages first</h2>
+        <p className="mt-2 text-sm leading-relaxed text-muted">
+          Add the bundles you sell, with their sizes and prices. Four example packages are ready
+          to copy and change.
+        </p>
+        <div className="mt-6 flex w-56 flex-col gap-2">
+          <Button variant="primary" onClick={onShowPackages}>
+            Set up packages
+          </Button>
+          <Button variant="ghost" size="sm" onClick={finishSetup}>
+            Skip for now
+          </Button>
+        </div>
       </div>
     </div>
   );
 }
 
-function Center() {
+function SettingsPanel() {
+  const tab = useStudio((state) => state.panelTab);
+  const setTab = useStudio((state) => state.setPanelTab);
+  return (
+    <div className="flex h-full min-h-0 flex-col">
+      <div className="border-b border-line p-3" data-guide="settings">
+        <Segmented<PanelTab>
+          label="Settings section"
+          value={tab}
+          options={[
+            { value: "photo", label: "Photo" },
+            { value: "print", label: "Print" },
+            { value: "packages", label: "Packages" },
+          ]}
+          onChange={setTab}
+        />
+      </div>
+      <div className="min-h-0 flex-1 overflow-y-auto">
+        {tab === "photo" ? <PhotoPanel /> : tab === "print" ? <PrintSetupPanel /> : <PackagesPanel />}
+      </div>
+    </div>
+  );
+}
+
+function Center({ onShowPackages }: { onShowPackages: () => void }) {
   const hasPhotos = useStudio((state) => state.groups.length > 0);
   const view = useStudio((state) => state.view);
-  if (!hasPhotos) return <EmptyState />;
+  const needsSetup = useStudio((state) => state.hydrated && !state.setupDone);
+  if (!hasPhotos) return needsSetup ? <SetupState onShowPackages={onShowPackages} /> : <EmptyState />;
   if (view === "crop") return <CropEditor />;
   if (view === "touchup") return <BackgroundTouchUp />;
   return <SheetPreview />;
@@ -220,13 +247,22 @@ export function StudioWorkspace() {
   }, [hasPhotos]);
 
   // The crop view lives in the sheet pane, so opening it from another pane moves there.
+  // Finishing setup moves phones on to adding photos.
   useEffect(
     () =>
       useStudio.subscribe((state, previous) => {
         if (state.cropRequests !== previous.cropRequests) setPane("sheet");
+        if (state.setupDone && !previous.setupDone && state.hydrated && previous.hydrated) {
+          setPane("photos");
+        }
       }),
     [],
   );
+
+  const showPackages = () => {
+    useStudio.getState().setPanelTab("packages");
+    setPane("settings");
+  };
 
   useShortcuts({
     "mod+z": outsideTouchUp(undo),
@@ -276,7 +312,7 @@ export function StudioWorkspace() {
         </aside>
         <main data-guide="sheet" className={`${sheetPane} min-w-0 flex-1 flex-col`}>
           <div className="min-h-0 w-full flex-1">
-            <Center />
+            <Center onShowPackages={showPackages} />
           </div>
         </main>
         <aside

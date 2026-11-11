@@ -4,12 +4,7 @@ import { create } from "zustand";
 import { createJSONStorage, persist } from "zustand/middleware";
 import { forgetImage } from "@/features/images/render";
 import { layoutSignature } from "@/features/layout/computeLayout";
-import {
-  DEFAULT_OPTIONS,
-  DEFAULT_PACKAGES,
-  DEFAULT_PHOTO_SIZES,
-  DEFAULT_PRINTER_PROFILES,
-} from "./defaults";
+import { DEFAULT_OPTIONS, DEFAULT_PHOTO_SIZES, DEFAULT_PRINTER_PROFILES } from "./defaults";
 import { groupSizeIds, type Library } from "./expand";
 import { patchRecipe, shareLook, unshareLook } from "./recipe";
 import type {
@@ -25,6 +20,7 @@ import type {
 } from "./types";
 
 export type WorkspaceView = "sheets" | "crop" | "touchup";
+export type PanelTab = "photo" | "print" | "packages";
 
 type Snapshot = {
   groups: PhotoGroup[];
@@ -39,6 +35,11 @@ const COALESCE_MS = 800;
 type StudioState = Snapshot & {
   assets: Record<string, PhotoAsset>;
   library: Library;
+  /** First visits set up packages before anything else. Saved with the library. */
+  setupDone: boolean;
+  /** Saved settings have been read, so first-visit screens know whether to show. */
+  hydrated: boolean;
+  panelTab: PanelTab;
   selectedGroupId: string | null;
   editingSizeId: string | null;
   view: WorkspaceView;
@@ -69,6 +70,8 @@ type StudioState = Snapshot & {
   select: (groupId: string | null) => void;
   setEditingSize: (sizeId: string) => void;
   setView: (view: WorkspaceView) => void;
+  setPanelTab: (tab: PanelTab) => void;
+  finishSetup: () => void;
 
   updateOptions: (patch: Partial<LayoutOptions>, historyKey?: string) => void;
   setManualPlacement: (itemId: string, placement: ManualPlacement) => void;
@@ -81,7 +84,7 @@ type StudioState = Snapshot & {
   removeSize: (sizeId: string) => void;
   upsertProfile: (profile: PrinterProfile) => void;
   removeProfile: (profileId: string) => void;
-  resetLibrary: () => void;
+  resetSizes: () => void;
 
   undo: () => void;
   redo: () => void;
@@ -123,6 +126,14 @@ function revokeUnused(
     }
   }
   return kept;
+}
+
+type SavedSettings = Pick<StudioState, "library" | "options" | "setupDone">;
+
+/** Settings saved before setup existed already had packages, so those users skip it. */
+export function migrateSettings(saved: unknown, version: number): SavedSettings {
+  const settings = saved as SavedSettings;
+  return version < 2 ? { ...settings, setupDone: true } : settings;
 }
 
 export const useStudio = create<StudioState>()(
@@ -169,9 +180,12 @@ export const useStudio = create<StudioState>()(
         assets: {},
         library: {
           sizes: DEFAULT_PHOTO_SIZES,
-          packages: DEFAULT_PACKAGES,
+          packages: [],
           profiles: DEFAULT_PRINTER_PROFILES,
         },
+        setupDone: false,
+        hydrated: false,
+        panelTab: "photo",
         selectedGroupId: null,
         editingSizeId: null,
         view: "sheets",
@@ -348,6 +362,14 @@ export const useStudio = create<StudioState>()(
           }));
         },
 
+        setPanelTab(panelTab) {
+          set({ panelTab });
+        },
+
+        finishSetup() {
+          set({ setupDone: true, panelTab: "photo" });
+        },
+
         updateOptions(patch, historyKey) {
           commit(
             (state) => ({ options: { ...state.options, ...patch } }),
@@ -440,14 +462,8 @@ export const useStudio = create<StudioState>()(
           }));
         },
 
-        resetLibrary() {
-          set((state) => ({
-            library: {
-              sizes: DEFAULT_PHOTO_SIZES,
-              packages: DEFAULT_PACKAGES,
-              profiles: state.library.profiles,
-            },
-          }));
+        resetSizes() {
+          set((state) => ({ library: { ...state.library, sizes: DEFAULT_PHOTO_SIZES } }));
         },
 
         undo() {
@@ -494,11 +510,22 @@ export const useStudio = create<StudioState>()(
     },
     {
       name: "pixmora-settings",
-      version: 1,
+      version: 2,
       storage: createJSONStorage(() => localStorage),
       skipHydration: true,
       // Packages and print defaults only. Customer photos are never stored.
-      partialize: (state) => ({ library: state.library, options: state.options }),
+      partialize: (state) => ({
+        library: state.library,
+        options: state.options,
+        setupDone: state.setupDone,
+      }),
+      migrate: migrateSettings,
+      onRehydrateStorage: () => (state) => {
+        useStudio.setState({
+          hydrated: true,
+          panelTab: state?.setupDone ? "photo" : "packages",
+        });
+      },
     },
   ),
 );

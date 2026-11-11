@@ -1,16 +1,24 @@
 "use client";
 
-import { useState } from "react";
-import { Button, Field, Notice, NumberField, SectionTitle, Segmented, SelectField } from "@/components/ui";
+import { Button, ChoiceCard, Field, Notice, SelectField, Stepper } from "@/components/ui";
 import { resolveGroupItems } from "@/features/job/expand";
 import { useStudio } from "@/features/job/store";
 import type { PhotoGroup } from "@/features/job/types";
-import { LibraryDialog } from "./LibraryDialog";
+import { PackageContents } from "./PackageContents";
+
+function Dot({ checked }: { checked: boolean }) {
+  return (
+    <span
+      aria-hidden
+      className={`size-3.5 shrink-0 rounded-full border ${checked ? "border-4 border-primary" : "border-line-strong"}`}
+    />
+  );
+}
 
 export function PackagePicker({ group }: { group: PhotoGroup }) {
   const library = useStudio((state) => state.library);
   const setSelection = useStudio((state) => state.setSelection);
-  const [libraryOpen, setLibraryOpen] = useState(false);
+  const setPanelTab = useStudio((state) => state.setPanelTab);
 
   const { selection } = group;
   const enabled = library.packages.filter(
@@ -21,65 +29,75 @@ export function PackagePicker({ group }: { group: PhotoGroup }) {
     .filter((size) => size?.needsConfirmation);
 
   return (
-    <div className="flex flex-col gap-3 border-t border-line pt-5">
-      <div className="flex items-center justify-between gap-2">
-        <SectionTitle>Print size</SectionTitle>
-        <Button variant="ghost" size="sm" onClick={() => setLibraryOpen(true)}>
-          Packages and sizes
-        </Button>
-      </div>
+    <>
+      {enabled.length === 0 ? (
+        <Notice
+          action={
+            <button
+              type="button"
+              className="font-medium underline underline-offset-2"
+              onClick={() => setPanelTab("packages")}
+            >
+              Set up packages
+            </button>
+          }
+        >
+          You have no packages yet, so this photo prints as a single size.
+        </Notice>
+      ) : null}
 
-      <Segmented
-        label="Print size type"
-        value={selection.kind}
-        options={[
-          { value: "package", label: "Package" },
-          { value: "single", label: "Single size" },
-        ]}
-        onChange={(kind) => {
-          if (kind === selection.kind) return;
-          if (kind === "package") {
-            const first = enabled[0];
-            if (first) {
-              setSelection(group.id, { kind: "package", packageId: first.id, sets: 1 });
-            }
-          } else {
+      <div role="radiogroup" aria-label="Print size" className="flex flex-col gap-1.5">
+        {enabled.map((preset) => {
+          const checked = selection.kind === "package" && selection.packageId === preset.id;
+          return (
+            <ChoiceCard
+              key={preset.id}
+              checked={checked}
+              onSelect={() =>
+                setSelection(group.id, {
+                  kind: "package",
+                  packageId: preset.id,
+                  sets: selection.kind === "package" ? selection.sets : 1,
+                })
+              }
+            >
+              <Dot checked={checked} />
+              <span className="min-w-0 flex-1">
+                <span className="block truncate text-[13px] font-medium text-ink">{preset.name}</span>
+                <PackageContents items={preset.items} sizes={library.sizes} />
+              </span>
+              <span className="shrink-0 text-[13px] text-muted tabular-nums">₱{preset.pricePhp}</span>
+            </ChoiceCard>
+          );
+        })}
+        <ChoiceCard
+          checked={selection.kind === "single"}
+          onSelect={() => {
+            if (selection.kind === "single") return;
             setSelection(group.id, {
               kind: "single",
               photoSizeId: library.sizes[0].id,
               quantity: 1,
             });
-          }
-        }}
-      />
+          }}
+        >
+          <Dot checked={selection.kind === "single"} />
+          <span className="min-w-0 flex-1">
+            <span className="block text-[13px] font-medium text-ink">Single size</span>
+            <span className="block text-[11px] text-muted">Any size, any number of copies</span>
+          </span>
+        </ChoiceCard>
+      </div>
 
       {selection.kind === "package" ? (
-        <div className="grid grid-cols-[1fr_72px] gap-3">
-          <Field label="Package">
-            <SelectField
-              value={selection.packageId}
-              onChange={(packageId) => setSelection(group.id, { ...selection, packageId })}
-            >
-              {enabled.map((preset) => (
-                <option key={preset.id} value={preset.id}>
-                  {preset.name} (₱{preset.pricePhp})
-                </option>
-              ))}
-            </SelectField>
-          </Field>
-          <Field label="Sets">
-            <NumberField
-              value={selection.sets}
-              min={1}
-              max={100}
-              step={1}
-              integer
-              onCommit={(sets) => setSelection(group.id, { ...selection, sets })}
-            />
-          </Field>
-        </div>
+        <Stepper
+          label="Sets"
+          value={selection.sets}
+          max={100}
+          onChange={(sets) => setSelection(group.id, { ...selection, sets })}
+        />
       ) : (
-        <div className="grid grid-cols-[1fr_72px] gap-3">
+        <>
           <Field label="Size">
             <SelectField
               value={selection.photoSizeId}
@@ -92,37 +110,27 @@ export function PackagePicker({ group }: { group: PhotoGroup }) {
               ))}
             </SelectField>
           </Field>
-          <Field label="Copies">
-            <NumberField
-              value={selection.quantity}
-              min={1}
-              max={500}
-              step={1}
-              integer
-              onCommit={(quantity) => setSelection(group.id, { ...selection, quantity })}
-            />
-          </Field>
-        </div>
+          <Stepper
+            label="Copies"
+            value={selection.quantity}
+            max={500}
+            onChange={(quantity) => setSelection(group.id, { ...selection, quantity })}
+          />
+        </>
       )}
-
-      {selection.kind === "package" ? (
-        <ul className="text-xs text-muted">
-          {resolveGroupItems(group, library.packages).map((item) => (
-            <li key={item.photoSizeId} className="tabular-nums">
-              {item.quantity} × {library.sizes.find((s) => s.id === item.photoSizeId)?.label ?? "Missing size"}
-            </li>
-          ))}
-        </ul>
-      ) : null}
 
       {unconfirmed.length > 0 ? (
         <Notice tone="warning">
           Passport sizes differ by issuing authority. Confirm {unconfirmed[0]?.widthMm} ×{" "}
-          {unconfirmed[0]?.heightMm} mm under Packages and sizes before printing.
+          {unconfirmed[0]?.heightMm} mm under Photo sizes in the Packages tab before printing.
         </Notice>
       ) : null}
 
-      <LibraryDialog open={libraryOpen} onClose={() => setLibraryOpen(false)} />
-    </div>
+      {enabled.length > 0 ? (
+        <Button variant="ghost" size="sm" className="self-start" onClick={() => setPanelTab("packages")}>
+          Edit packages
+        </Button>
+      ) : null}
+    </>
   );
 }
