@@ -3,12 +3,12 @@
 import { useState } from "react";
 import { Brush, Loader2, Sparkles } from "lucide-react";
 import { toast } from "sonner";
-import { Button, Modal, SectionTitle } from "@/components/ui";
+import { Button, Modal } from "@/components/ui";
 import { useStudio } from "@/features/job/store";
 import type { EditRecipe, PhotoAsset, PhotoGroup } from "@/features/job/types";
 import { localBackgroundRemoval, type RemovalProgress } from "./provider";
 
-const SWATCHES = [
+export const SWATCHES = [
   { label: "White", color: "#FFFFFF" },
   { label: "Blue", color: "#1F5FBF" },
   { label: "Red", color: "#C8102E" },
@@ -63,8 +63,7 @@ export function BackgroundControls({
         : "Preparing…";
 
   return (
-    <div className="flex flex-col gap-3 border-t border-line pt-5">
-      <SectionTitle>Background</SectionTitle>
+    <div className="flex flex-col gap-3">
       {asset.cutoutUrl ? (
         <>
           <div className="flex flex-wrap items-center gap-2" role="group" aria-label="Background colour">

@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { Crop } from "lucide-react";
 import {
   Button,
@@ -9,24 +9,86 @@ import {
   Field,
   Notice,
   NumberField,
-  SectionTitle,
+  PanelSection,
   Segmented,
-  SelectField,
   SliderField,
   TextField,
   Toggle,
 } from "@/components/ui";
-import { BackgroundControls } from "@/features/background/BackgroundControls";
-import { groupSizeIds } from "@/features/job/expand";
+import { BackgroundControls, SWATCHES } from "@/features/background/BackgroundControls";
+import { createDefaultRecipe } from "@/features/job/defaults";
+import { countGroupPrints, groupSizeIds } from "@/features/job/expand";
 import { pickLook, resolveRecipe, sameLook } from "@/features/job/recipe";
 import { useSelectedGroup, useStudio } from "@/features/job/store";
-import type { PhotoAsset, PhotoBorder, PhotoGroup } from "@/features/job/types";
+import type { EditRecipe, PhotoAsset, PhotoBorder, PhotoGroup, PhotoSize } from "@/features/job/types";
 import { PackagePicker } from "@/features/packages/PackagePicker";
 import { useGroupQuality } from "./quality";
+import { canvasToBlob, renderPrint } from "./render";
+
+type SectionId = "size" | "look" | "background" | "border";
+
+const DEFAULT_RECIPE = createDefaultRecipe();
+const PREVIEW_DPI = 60;
+
+/** A small render of one size's crop, from the same renderer as the sheet. */
+function useCropPreview(asset: PhotoAsset, recipe: EditRecipe, size: PhotoSize | undefined) {
+  const [url, setUrl] = useState<string | null>(null);
+  const signature = JSON.stringify([recipe, size, asset.url, asset.cutoutUrl]);
+
+  useEffect(() => {
+    if (!size) return;
+    let cancelled = false;
+    let made: string | null = null;
+    const timer = setTimeout(async () => {
+      try {
+        const canvas = await renderPrint(asset, recipe, size, PREVIEW_DPI);
+        const blob = await canvasToBlob(canvas, "image/jpeg", 0.8);
+        if (cancelled) return;
+        made = URL.createObjectURL(blob);
+        setUrl(made);
+      } catch {
+        // The preview is a convenience; the sheet still shows the real result.
+      }
+    }, 150);
+    return () => {
+      cancelled = true;
+      clearTimeout(timer);
+      if (made) URL.revokeObjectURL(made);
+    };
+    // The signature covers every input that changes the picture.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [signature]);
+
+  return url;
+}
+
+function lookSummary(recipe: EditRecipe): string {
+  const edited =
+    recipe.area !== null ||
+    recipe.rotationDeg !== DEFAULT_RECIPE.rotationDeg ||
+    recipe.brightness !== DEFAULT_RECIPE.brightness ||
+    recipe.contrast !== DEFAULT_RECIPE.contrast ||
+    recipe.vibrance !== DEFAULT_RECIPE.vibrance ||
+    recipe.temperature !== DEFAULT_RECIPE.temperature;
+  return edited ? "Edited" : "Not edited";
+}
+
+function backgroundSummary(recipe: EditRecipe): string {
+  if (recipe.background.mode === "keep") return "Original";
+  const swatch = SWATCHES.find((s) => s.color.toLowerCase() === recipe.background.color.toLowerCase());
+  return swatch?.label ?? recipe.background.color.toUpperCase();
+}
+
+function borderSummary(border: PhotoBorder): string {
+  if (!border.enabled) return "Off";
+  return `${border.style === "solid" ? "Solid" : "Dashed"} ${border.widthMm} mm`;
+}
 
 export function PhotoPanel() {
   const group = useSelectedGroup();
   const asset = useStudio((state) => (group ? state.assets[group.assetId] : undefined));
+  // Kept outside the photo so sections stay as they were when switching photos.
+  const [open, setOpen] = useState<SectionId[]>(["size"]);
 
   if (!group || !asset) {
     return (
@@ -36,10 +98,23 @@ export function PhotoPanel() {
     );
   }
 
-  return <PhotoPanelBody key={group.id} group={group} asset={asset} />;
+  const toggle = (id: SectionId) =>
+    setOpen((current) => (current.includes(id) ? current.filter((s) => s !== id) : [...current, id]));
+
+  return <PhotoPanelBody key={group.id} group={group} asset={asset} open={open} onToggle={toggle} />;
 }
 
-function PhotoPanelBody({ group, asset }: { group: PhotoGroup; asset: PhotoAsset }) {
+function PhotoPanelBody({
+  group,
+  asset,
+  open,
+  onToggle,
+}: {
+  group: PhotoGroup;
+  asset: PhotoAsset;
+  open: SectionId[];
+  onToggle: (id: SectionId) => void;
+}) {
   const library = useStudio((state) => state.library);
   const editingSizeId = useStudio((state) => state.editingSizeId);
   const setEditingSize = useStudio((state) => state.setEditingSize);
@@ -56,6 +131,15 @@ function PhotoPanelBody({ group, asset }: { group: PhotoGroup; asset: PhotoAsset
   const size = library.sizes.find((s) => s.id === sizeId);
   const recipe = resolveRecipe(group, sizeId);
   const shared = Boolean(group.sharedLook);
+  const preview = useCropPreview(asset, recipe, size);
+  const prints = countGroupPrints(group, library.packages);
+
+  const { selection } = group;
+  const pickedName =
+    selection.kind === "package"
+      ? (library.packages.find((p) => p.id === selection.packageId)?.name ?? "Missing package") +
+        (selection.sets > 1 ? ` × ${selection.sets}` : "")
+      : (library.sizes.find((s) => s.id === selection.photoSizeId)?.label ?? "Missing size");
 
   const toggleShared = (next: boolean) => {
     const differs = sizeIds.some(
@@ -74,15 +158,24 @@ function PhotoPanelBody({ group, asset }: { group: PhotoGroup; asset: PhotoAsset
   };
 
   return (
-    <div className="flex flex-col gap-5 p-4">
-      <div className="flex flex-col gap-3">
-        <Field label="Name">
-          <TextField value={group.displayName} onChange={(name) => renameGroup(group.id, name)} />
-        </Field>
-        <p className="text-xs text-muted tabular-nums">
-          {asset.widthPx} × {asset.heightPx} px
-          {Number.isFinite(lowest) ? ` • ${Math.round(lowest)} DPI at print size` : ""}
-        </p>
+    <div className="flex flex-col">
+      <div className="flex flex-col gap-3 p-4">
+        <div className="flex items-center gap-3">
+          {/* Object URLs of local files cannot pass through the image optimizer. */}
+          {/* eslint-disable-next-line @next/next/no-img-element */}
+          <img src={asset.url} alt="" className="size-12 shrink-0 rounded-lg bg-page object-cover" />
+          <div className="flex min-w-0 flex-1 flex-col gap-1">
+            <TextField
+              ariaLabel="Photo name"
+              value={group.displayName}
+              onChange={(name) => renameGroup(group.id, name)}
+            />
+            <p className="truncate text-xs text-muted tabular-nums">
+              {asset.widthPx} × {asset.heightPx} px
+              {Number.isFinite(lowest) ? ` • ${Math.round(lowest)} DPI at print size` : ""}
+            </p>
+          </div>
+        </div>
         {isLow ? (
           <Notice tone="warning">
             This crop gives {Math.round(lowest)} DPI, under your {minDpi} DPI target. It will print
@@ -91,40 +184,68 @@ function PhotoPanelBody({ group, asset }: { group: PhotoGroup; asset: PhotoAsset
         ) : null}
       </div>
 
-      <PackagePicker group={group} />
+      <PanelSection
+        title="Print size"
+        summary={`${pickedName} · ${prints} ${prints === 1 ? "print" : "prints"}`}
+        open={open.includes("size")}
+        onToggle={() => onToggle("size")}
+      >
+        <PackagePicker group={group} />
+      </PanelSection>
 
       {size ? (
-        <div className="flex flex-col gap-3 border-t border-line pt-5">
-          <SectionTitle>Crop and colour</SectionTitle>
+        <PanelSection
+          title="Crop and colour"
+          summary={lookSummary(recipe)}
+          open={open.includes("look")}
+          onToggle={() => onToggle("look")}
+        >
           {sizeIds.length > 1 ? (
-            <Field label="Editing crop for">
-              <SelectField value={sizeId} onChange={setEditingSize}>
-                {sizeIds.map((id) => (
-                  <option key={id} value={id}>
-                    {library.sizes.find((s) => s.id === id)?.label ?? id}
-                  </option>
-                ))}
-              </SelectField>
-            </Field>
+            <div role="radiogroup" aria-label="Editing size" className="flex flex-wrap gap-1.5">
+              {sizeIds.map((id) => (
+                <button
+                  key={id}
+                  type="button"
+                  role="radio"
+                  aria-checked={id === sizeId}
+                  onClick={() => setEditingSize(id)}
+                  className={`h-8 rounded-lg border px-2.5 text-[13px] transition-colors duration-150 max-md:h-11 coarse:h-11 ${
+                    id === sizeId
+                      ? "border-primary bg-primary-soft font-medium text-ink"
+                      : "border-line text-muted hover:text-ink"
+                  }`}
+                >
+                  {library.sizes.find((s) => s.id === id)?.label ?? id}
+                </button>
+              ))}
+            </div>
           ) : null}
-          {sizeIds.length > 1 ? (
-            <Checkbox
-              label="Use these edits on every size"
-              description="Colour and background match across this photo's sizes. Each size keeps its own crop and border."
-              checked={shared}
-              onChange={toggleShared}
-            />
-          ) : null}
-          <Button onClick={() => setView("crop")}>
-            <Crop aria-hidden className="size-4" />
-            Position crop
-          </Button>
+          <div className="flex items-center gap-3">
+            <div
+              className="flex h-14 w-14 shrink-0 items-center justify-center overflow-hidden rounded-lg bg-page"
+              aria-hidden
+            >
+              {preview ? (
+                // eslint-disable-next-line @next/next/no-img-element
+                <img
+                  src={preview}
+                  alt=""
+                  className="max-h-full max-w-full shadow-[0_0_0_1px_var(--border-subtle)]"
+                />
+              ) : null}
+            </div>
+            <Button className="flex-1" onClick={() => setView("crop")}>
+              <Crop aria-hidden className="size-4" />
+              Position crop
+            </Button>
+          </div>
           <SliderField
             label="Brightness"
             value={recipe.brightness}
             min={50}
             max={150}
             suffix="%"
+            defaultValue={DEFAULT_RECIPE.brightness}
             onChange={(brightness) => updateRecipe(group.id, sizeId, { brightness }, "brightness")}
           />
           <SliderField
@@ -133,6 +254,7 @@ function PhotoPanelBody({ group, asset }: { group: PhotoGroup; asset: PhotoAsset
             min={50}
             max={150}
             suffix="%"
+            defaultValue={DEFAULT_RECIPE.contrast}
             onChange={(contrast) => updateRecipe(group.id, sizeId, { contrast }, "contrast")}
           />
           <SliderField
@@ -140,6 +262,7 @@ function PhotoPanelBody({ group, asset }: { group: PhotoGroup; asset: PhotoAsset
             value={recipe.vibrance}
             min={-100}
             max={100}
+            defaultValue={DEFAULT_RECIPE.vibrance}
             onChange={(vibrance) => updateRecipe(group.id, sizeId, { vibrance }, "vibrance")}
           />
           <SliderField
@@ -147,17 +270,40 @@ function PhotoPanelBody({ group, asset }: { group: PhotoGroup; asset: PhotoAsset
             value={recipe.temperature}
             min={-100}
             max={100}
+            defaultValue={DEFAULT_RECIPE.temperature}
             onChange={(temperature) =>
               updateRecipe(group.id, sizeId, { temperature }, "temperature")
             }
           />
-        </div>
+          {sizeIds.length > 1 ? (
+            <Checkbox
+              label="Use these edits on every size"
+              description="Colour and background match across this photo's sizes. Each size keeps its own crop and border."
+              checked={shared}
+              onChange={toggleShared}
+            />
+          ) : null}
+        </PanelSection>
       ) : null}
 
-      {size ? <BackgroundControls group={group} asset={asset} sizeId={sizeId} recipe={recipe} /> : null}
+      {size ? (
+        <PanelSection
+          title="Background"
+          summary={backgroundSummary(recipe)}
+          open={open.includes("background")}
+          onToggle={() => onToggle("background")}
+        >
+          <BackgroundControls group={group} asset={asset} sizeId={sizeId} recipe={recipe} />
+        </PanelSection>
+      ) : null}
 
       {size ? (
-        <div className="flex flex-col gap-3 border-t border-line pt-5">
+        <PanelSection
+          title="Border"
+          summary={borderSummary(recipe.border)}
+          open={open.includes("border")}
+          onToggle={() => onToggle("border")}
+        >
           <Toggle
             label="Photo border"
             description="Drawn inside the print, so the finished size stays the same."
@@ -196,10 +342,10 @@ function PhotoPanelBody({ group, asset }: { group: PhotoGroup; asset: PhotoAsset
               </div>
             </>
           ) : null}
-        </div>
+        </PanelSection>
       ) : null}
 
-      <div className="border-t border-line pt-4">
+      <div className="border-t border-line p-4">
         <Button variant="ghost" size="sm" className="w-full" onClick={() => setConfirmingReset(true)}>
           Reset this photo
         </Button>
