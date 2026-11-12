@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { Check, ChevronDown, Copy, Plus, Ruler, Trash2 } from "lucide-react";
+import { Check, ChevronDown, Copy, MousePointer2, Plus, Ruler, Trash2 } from "lucide-react";
 import { toast } from "sonner";
 import {
   Button,
@@ -16,6 +16,7 @@ import {
 } from "@/components/ui";
 import { EXAMPLE_PACKAGES } from "@/features/job/defaults";
 import { createId, useStudio } from "@/features/job/store";
+import { useGuideAvailable } from "@/features/studio/GuideCursor";
 import type { PackagePreset } from "@/features/job/types";
 import { LibraryDialog } from "./LibraryDialog";
 import { PackageContents } from "./PackageContents";
@@ -253,6 +254,8 @@ export function PackagesPanel() {
   const setupDone = useStudio((state) => state.setupDone);
   const finishSetup = useStudio((state) => state.finishSetup);
   const upsertPackage = useStudio((state) => state.upsertPackage);
+  const setGuide = useStudio((state) => state.setGuide);
+  const guideAvailable = useGuideAvailable();
   const [openId, setOpenId] = useState<string | null>(null);
   const [libraryOpen, setLibraryOpen] = useState(false);
 
@@ -282,6 +285,17 @@ export function PackagesPanel() {
             ? "The bundles you sell. Each photo picks one in its Photo tab."
             : "Add the bundles you sell, with their sizes and prices. Copy an example or start from scratch."}
         </p>
+        {guideAvailable ? (
+          <Button
+            size="sm"
+            variant="ghost"
+            className="mt-1 self-start"
+            onClick={() => setGuide("setup")}
+          >
+            <MousePointer2 aria-hidden className="size-3.5" />
+            Guide me through setup
+          </Button>
+        ) : null}
       </div>
 
       <div className="flex flex-col gap-2">

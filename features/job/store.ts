@@ -21,6 +21,7 @@ import type {
 
 export type WorkspaceView = "sheets" | "crop" | "touchup";
 export type PanelTab = "photo" | "print" | "packages";
+export type GuideTour = "setup" | "studio";
 
 type Snapshot = {
   groups: PhotoGroup[];
@@ -42,6 +43,8 @@ type StudioState = Snapshot & {
   /** Saved settings have been read, so first-visit screens know whether to show. */
   hydrated: boolean;
   panelTab: PanelTab;
+  /** The cursor tour that is playing, if any. */
+  guide: GuideTour | null;
   selectedGroupId: string | null;
   editingSizeId: string | null;
   view: WorkspaceView;
@@ -74,6 +77,7 @@ type StudioState = Snapshot & {
   setView: (view: WorkspaceView) => void;
   setPanelTab: (tab: PanelTab) => void;
   finishSetup: () => void;
+  setGuide: (guide: GuideTour | null) => void;
 
   updateOptions: (patch: Partial<LayoutOptions>, historyKey?: string) => void;
   setManualPlacement: (itemId: string, placement: ManualPlacement) => void;
@@ -196,6 +200,7 @@ export const useStudio = create<StudioState>()(
         setupDone: false,
         hydrated: false,
         panelTab: "photo",
+        guide: null,
         selectedGroupId: null,
         editingSizeId: null,
         view: "sheets",
@@ -379,6 +384,10 @@ export const useStudio = create<StudioState>()(
 
         finishSetup() {
           set({ setupDone: true, panelTab: "photo" });
+        },
+
+        setGuide(guide) {
+          set({ guide });
         },
 
         updateOptions(patch, historyKey) {

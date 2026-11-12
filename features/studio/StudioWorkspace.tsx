@@ -233,7 +233,6 @@ export function StudioWorkspace() {
   const addPhotos = useAddPhotos();
   const [pane, setPane] = useState<Pane>("sheet");
   const [shortcutsOpen, setShortcutsOpen] = useState(false);
-  const [guiding, setGuiding] = useState(false);
 
   useEffect(() => {
     void useStudio.persist.rehydrate();
@@ -301,7 +300,10 @@ export function StudioWorkspace() {
         sidePane={pane === "photos" ? "photos" : "settings"}
         onSidePane={setPane}
         onShortcuts={() => setShortcutsOpen(true)}
-        onGuide={() => setGuiding(true)}
+        onGuide={() => {
+          const { setupDone, setGuide } = useStudio.getState();
+          setGuide(setupDone ? "studio" : "setup");
+        }}
       />
       <div className="flex min-h-0 flex-1">
         <aside
@@ -342,8 +344,6 @@ export function StudioWorkspace() {
       </nav>
       <ShortcutsDialog open={shortcutsOpen} onClose={() => setShortcutsOpen(false)} />
       <GuideCursor
-        running={guiding}
-        onRunningChange={setGuiding}
         pane={pane}
         onPaneChange={setPane}
       />

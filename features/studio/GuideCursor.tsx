@@ -2,7 +2,7 @@
 
 import { useEffect, useRef, useSyncExternalStore } from "react";
 import { Button } from "@/components/ui";
-import { useStudio, type PanelTab } from "@/features/job/store";
+import { useStudio, type GuideTour, type PanelTab } from "@/features/job/store";
 
 // The tour is pure motion, so reduced motion skips it.
 const CAPABLE = "(prefers-reduced-motion: no-preference)";
@@ -32,7 +32,8 @@ type Tour = {
 };
 
 // Steps run in order. A step is skipped when its target cannot be shown.
-const SETUP_TOUR: Tour = {
+const TOURS: Record<GuideTour, Tour> = {
+  setup: {
   seenKey: "pixmora-setup-guide-seen",
   restorePane: false,
   steps: [
@@ -41,7 +42,7 @@ const SETUP_TOUR: Tour = {
       pane: "settings",
       tab: "packages",
       at: "below",
-      text: "Welcome to Pixmora. First, set up the packages you sell.",
+      text: "Hi, I'm Wiwo. Welcome to Pixmora! First, let's set up the packages you sell.",
     },
     {
       target: '[data-guide="examples"] > li:first-child',
@@ -64,11 +65,10 @@ const SETUP_TOUR: Tour = {
       at: "below",
       text: "When your packages are ready, finish here and start adding photos.",
     },
-    { text: "You can replay this tour any time with the pointer button at the top." },
+    { text: "Need me again? Choose Guide me through setup, or the pointer button at the top." },
   ],
-};
-
-const STUDIO_TOUR: Tour = {
+  },
+  studio: {
   seenKey: "pixmora-guide-seen",
   restorePane: true,
   steps: [
@@ -128,6 +128,7 @@ const STUDIO_TOUR: Tour = {
     },
     { pane: "sheet", text: "That's the tour. Happy printing!" },
   ],
+  },
 };
 
 function read(key: string) {
@@ -348,13 +349,9 @@ function runTour(
 
 /** A scripted cursor that walks first-time users through setup, then the Studio, typing as it goes. */
 export function GuideCursor({
-  running,
-  onRunningChange,
   pane,
   onPaneChange,
 }: {
-  running: boolean;
-  onRunningChange: (running: boolean) => void;
   pane: GuidePane;
   onPaneChange: (pane: GuidePane) => void;
 }) {
@@ -367,7 +364,9 @@ export function GuideCursor({
   const currentPane = useRef(pane);
   const hydrated = useStudio((state) => state.hydrated);
   const setupDone = useStudio((state) => state.setupDone);
-  const tour = setupDone ? STUDIO_TOUR : SETUP_TOUR;
+  const guide = useStudio((state) => state.guide);
+  const setGuide = useStudio((state) => state.setGuide);
+  const running = guide !== null;
 
   useEffect(() => {
     currentPane.current = pane;
@@ -377,21 +376,23 @@ export function GuideCursor({
   // setup is finished. Returning users have the top bar button.
   useEffect(() => {
     if (!available || !hydrated) return;
+    const next: GuideTour = setupDone ? "studio" : "setup";
     const timer = window.setTimeout(() => {
-      if (read(tour.seenKey) || document.querySelector("dialog[open]")) return;
-      write(tour.seenKey, "1");
-      onRunningChange(true);
+      if (read(TOURS[next].seenKey) || document.querySelector("dialog[open]")) return;
+      write(TOURS[next].seenKey, "1");
+      setGuide(next);
     }, 1400);
     return () => window.clearTimeout(timer);
-  }, [available, hydrated, tour, onRunningChange]);
+  }, [available, hydrated, setupDone, setGuide]);
 
   useEffect(() => {
-    if (!running || !available) return;
+    if (!guide || !available) return;
+    const tour = TOURS[guide];
     if (!root.current || !bubble.current || !typed.current || !rest.current || !live.current) return;
     const controller = new AbortController();
     const startPane = currentPane.current;
     // Any real input ends the tour, so it never talks over someone working or behind a dialog.
-    const stop = () => onRunningChange(false);
+    const stop = () => setGuide(null);
     document.addEventListener("pointerdown", stop, true);
     document.addEventListener("keydown", stop, true);
     void runTour(
@@ -406,7 +407,7 @@ export function GuideCursor({
       tour.steps,
       controller.signal,
     ).then(() => {
-      if (!controller.signal.aborted) onRunningChange(false);
+      if (!controller.signal.aborted) setGuide(null);
     });
     return () => {
       document.removeEventListener("pointerdown", stop, true);
@@ -414,7 +415,7 @@ export function GuideCursor({
       controller.abort();
       if (tour.restorePane) onPaneChange(startPane);
     };
-  }, [running, available, tour, onRunningChange, onPaneChange]);
+  }, [guide, available, setGuide, onPaneChange]);
 
   if (!available) return null;
 
@@ -431,7 +432,7 @@ export function GuideCursor({
           />
         </svg>
         <div ref={bubble} className="guide-bubble">
-          <b>Pixmora</b>
+          <b>Wiwo</b>
           <span>
             <span ref={typed} />
             <span ref={rest} className="invisible" />
@@ -441,7 +442,7 @@ export function GuideCursor({
       <p ref={live} role="status" className="sr-only" />
       {running ? (
         <div className="fixed bottom-4 left-1/2 z-40 -translate-x-1/2 max-md:bottom-20 short:bottom-14">
-          <Button size="sm" onClick={() => onRunningChange(false)}>
+          <Button size="sm" onClick={() => setGuide(null)}>
             Skip tour
             <kbd className="font-sans text-xs text-muted coarse:hidden">Esc</kbd>
           </Button>
