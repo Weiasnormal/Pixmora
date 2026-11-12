@@ -1,3 +1,4 @@
+import { FriendlyError } from "@/features/errors";
 import type {
   CropArea,
   EditRecipe,
@@ -15,7 +16,7 @@ function loadImage(url: string): Promise<HTMLImageElement> {
     pending = new Promise((resolve, reject) => {
       const image = new Image();
       image.onload = () => resolve(image);
-      image.onerror = () => reject(new Error("The image could not be read."));
+      image.onerror = () => reject(new FriendlyError("A photo could not be read. Remove it and add it again."));
       image.src = url;
     });
     images.set(url, pending);
@@ -110,7 +111,7 @@ export async function renderPrint(
   canvas.width = width;
   canvas.height = height;
   const context = canvas.getContext("2d", { willReadFrequently: false });
-  if (!context) throw new Error("This browser could not start image rendering.");
+  if (!context) throw new FriendlyError("This browser could not start image rendering.");
 
   context.fillStyle = usesSolid ? recipe.background.color : "#FFFFFF";
   context.fillRect(0, 0, width, height);
@@ -130,7 +131,7 @@ export async function renderPrint(
   const photo = needsPixels
     ? layer.getContext("2d", { willReadFrequently: true })
     : context;
-  if (!photo) throw new Error("This browser could not start image rendering.");
+  if (!photo) throw new FriendlyError("This browser could not start image rendering.");
 
   photo.imageSmoothingEnabled = true;
   photo.imageSmoothingQuality = "high";
@@ -169,7 +170,7 @@ export function canvasToBlob(
 ): Promise<Blob> {
   return new Promise((resolve, reject) => {
     canvas.toBlob(
-      (blob) => (blob ? resolve(blob) : reject(new Error("The image could not be saved."))),
+      (blob) => (blob ? resolve(blob) : reject(new FriendlyError("The file could not be created. Try again."))),
       type,
       quality,
     );

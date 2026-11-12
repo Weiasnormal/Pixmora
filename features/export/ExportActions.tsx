@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import { friendlyMessage } from "@/features/errors";
 import { FileDown, ImageDown, Loader2, Printer } from "lucide-react";
 import { toast } from "sonner";
 import { Button, Field, Modal, Notice, SelectField } from "@/components/ui";
@@ -52,7 +53,9 @@ export function ExportActions() {
     try {
       toast.success(await action());
     } catch (error) {
-      toast.error(error instanceof Error ? error.message : "Export failed. Try again.");
+      toast.error(
+        friendlyMessage(error, "Export didn't finish. Try again, and reload the page if it keeps failing."),
+      );
     } finally {
       setBusy(null);
     }

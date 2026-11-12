@@ -1,4 +1,5 @@
 import { canvasToBlob, renderPrint } from "@/features/images/render";
+import { FriendlyError } from "@/features/errors";
 import { resolveRecipe } from "@/features/job/recipe";
 import type { Library } from "@/features/job/expand";
 import type { PhotoAsset, PhotoGroup, Placement, SheetBounds } from "@/features/job/types";
@@ -36,7 +37,7 @@ export function exportBlocker(layout: StudioLayout): string | null {
 
 function assertExportable(layout: StudioLayout) {
   const blocker = exportBlocker(layout);
-  if (blocker) throw new Error(blocker);
+  if (blocker) throw new FriendlyError(blocker);
 }
 
 function renderKeys(placements: Placement[]) {
@@ -54,7 +55,7 @@ async function renderCanvases(snapshot: ExportSnapshot, dpi: number) {
     const size = snapshot.library.sizes.find((s) => s.id === photoSizeId);
     const asset = group ? snapshot.assets[group.assetId] : undefined;
     if (!group || !size || !asset) {
-      throw new Error("A photo in this layout is missing. Check the queue and try again.");
+      throw new FriendlyError("A photo in this layout is missing. Check the queue and try again.");
     }
     canvases.set(key, await renderPrint(asset, resolveRecipe(group, photoSizeId), size, dpi));
   }
@@ -103,7 +104,7 @@ function drawSheet(
   page.width = Math.round((sheet.widthMm / 25.4) * dpi);
   page.height = Math.round((sheet.heightMm / 25.4) * dpi);
   const context = page.getContext("2d");
-  if (!context) throw new Error("This browser could not start image rendering.");
+  if (!context) throw new FriendlyError("This browser could not start image rendering.");
 
   context.fillStyle = "#FFFFFF";
   context.fillRect(0, 0, page.width, page.height);

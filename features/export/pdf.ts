@@ -1,4 +1,5 @@
 import { PDFDocument, StandardFonts, degrees, rgb } from "pdf-lib";
+import { FriendlyError } from "@/features/errors";
 import type { Placement, SheetBounds } from "@/features/job/types";
 import { mmToPixels, mmToPoints } from "@/features/layout/units";
 
@@ -67,7 +68,7 @@ export async function buildPrintPdf(job: PdfJob): Promise<Uint8Array> {
       if (placement.sheetIndex !== index) continue;
       const image = embedded.get(imageKey(placement.groupId, placement.photoSizeId));
       if (!image) {
-        throw new Error("A photo was missing while building the PDF. Try exporting again.");
+        throw new FriendlyError("A photo was missing while building the PDF. Try exporting again.");
       }
       const frame = pdfImageFrame(placement, job.sheet.heightMm);
       page.drawImage(image, {
