@@ -4,6 +4,7 @@ import { resolveRecipe } from "@/features/job/recipe";
 import type { Library } from "@/features/job/expand";
 import type { PhotoAsset, PhotoGroup, Placement, SheetBounds } from "@/features/job/types";
 import type { StudioLayout } from "@/features/layout/computeLayout";
+import { withoutEmptySheets } from "@/features/layout/sheets";
 import {
   buildCalibrationPdf,
   buildPrintPdf,
@@ -62,8 +63,8 @@ async function renderCanvases(snapshot: ExportSnapshot, dpi: number) {
   return canvases;
 }
 
-function traceLines(snapshot: ExportSnapshot): string[] {
-  return snapshot.layout.placements.map((placement) => {
+function traceLines(snapshot: ExportSnapshot, placements: Placement[]): string[] {
+  return placements.map((placement) => {
     const group = snapshot.groups.find((g) => g.id === placement.groupId);
     const size = snapshot.library.sizes.find((s) => s.id === placement.photoSizeId);
     return `Sheet ${placement.sheetIndex + 1}: ${group?.displayName} / ${size?.label} / copy ${placement.copyIndex + 1}`;
@@ -81,25 +82,27 @@ export async function createPrintPdf(snapshot: ExportSnapshot, dpi = DEFAULT_EXP
   }
 
   const jobId = createJobId();
+  const printed = withoutEmptySheets(snapshot.layout.placements);
   const bytes = await buildPrintPdf({
     sheet: snapshot.layout.sheet,
-    sheetCount: snapshot.layout.sheetCount,
-    placements: snapshot.layout.placements,
+    sheetCount: printed.sheetCount,
+    placements: printed.placements,
     images,
     cutGuides: snapshot.cutGuides,
     jobId,
-    trace: traceLines(snapshot),
+    trace: traceLines(snapshot, printed.placements),
   });
   return { bytes, jobId };
 }
 
 function drawSheet(
   snapshot: ExportSnapshot,
+  placements: Placement[],
   sheetIndex: number,
   dpi: number,
   canvases: Map<string, HTMLCanvasElement>,
 ): HTMLCanvasElement {
-  const { sheet, placements } = snapshot.layout;
+  const { sheet } = snapshot.layout;
   const page = document.createElement("canvas");
   page.width = Math.round((sheet.widthMm / 25.4) * dpi);
   page.height = Math.round((sheet.heightMm / 25.4) * dpi);
@@ -155,11 +158,13 @@ export async function downloadPdf(snapshot: ExportSnapshot) {
 export async function downloadPngs(snapshot: ExportSnapshot, dpi: number) {
   assertExportable(snapshot.layout);
   const canvases = await renderCanvases(snapshot, dpi);
-  for (let index = 0; index < snapshot.layout.sheetCount; index += 1) {
-    const blob = await canvasToBlob(drawSheet(snapshot, index, dpi, canvases), "image/png");
+  const printed = withoutEmptySheets(snapshot.layout.placements);
+  for (let index = 0; index < printed.sheetCount; index += 1) {
+    const page = drawSheet(snapshot, printed.placements, index, dpi, canvases);
+    const blob = await canvasToBlob(page, "image/png");
     triggerDownload(blob, `pixmora-sheet-${index + 1}-${dpi}dpi.png`);
   }
-  return snapshot.layout.sheetCount;
+  return printed.sheetCount;
 }
 
 /** Opens the browser's print dialog for the same PDF the download produces. */

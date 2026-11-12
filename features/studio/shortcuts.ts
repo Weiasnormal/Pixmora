@@ -89,6 +89,7 @@ export const SHORTCUT_GROUPS: { title: string; entries: ShortcutEntry[] }[] = [
       { label: "Zoom at the pointer", keys: [["mod", "Scroll"]] },
       { label: "Fit to screen", keys: [["mod", "0"]] },
       { label: "Previous or next sheet", keys: [["Page Up"], ["Page Down"]] },
+      { label: "Move focused print to another sheet", keys: [["Shift", "Page Up"], ["Shift", "Page Down"]] },
       { label: "Move focused print 1 mm", keys: [["Arrows"]] },
       { label: "Move focused print 0.1 mm", keys: [["Shift", "Arrows"]] },
     ],

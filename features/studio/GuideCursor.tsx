@@ -92,6 +92,12 @@ const STUDIO_TOUR: Tour = {
       text: "Zoom here, or hold Ctrl and scroll over the sheet.",
     },
     {
+      target: '[data-guide="add-sheet"]',
+      pane: "sheet",
+      at: "below",
+      text: "Need another page? Add a sheet here, then drag prints onto its tab.",
+    },
+    {
       target: '[data-guide="settings"] [role="radio"]:nth-child(1)',
       pane: "settings",
       at: "below",

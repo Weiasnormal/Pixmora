@@ -8,13 +8,14 @@ import {
   type KeyboardEvent,
   type PointerEvent,
 } from "react";
-import { ChevronLeft, ChevronRight, Minus, Plus } from "lucide-react";
+import { Minus, Plus } from "lucide-react";
 import { toast } from "sonner";
 import { Button, ConfirmDialog, IconButton, Notice } from "@/components/ui";
 import { imageKey } from "@/features/export/pdf";
 import { useStudio } from "@/features/job/store";
 import type { Placement, SheetBounds } from "@/features/job/types";
 import { useShortcuts } from "@/features/studio/shortcuts";
+import { findFreeSpot } from "./sheets";
 import { formatSize } from "./units";
 import { usePrintImages } from "./usePrintImages";
 import { useLayout } from "./useLayout";
@@ -39,6 +40,12 @@ type Drag = {
   originX: number;
   originY: number;
 };
+
+/** The sheet tab under the pointer, so a print dragged onto a tab can move to that sheet. */
+function tabAt(clientX: number, clientY: number): number | null {
+  const tab = document.elementFromPoint(clientX, clientY)?.closest<HTMLElement>("[data-sheet-tab]");
+  return tab ? Number(tab.dataset.sheetTab) : null;
+}
 
 function clampIndex(index: number, count: number): number {
   return Math.min(index, Math.max(count - 1, 0));
@@ -75,6 +82,9 @@ function SheetCanvas({
   gapY,
   allPlacements,
   zoomed,
+  sheetCount,
+  onMoveToSheet,
+  onTabHover,
 }: {
   sheet: SheetBounds;
   placements: Placement[];
@@ -86,6 +96,9 @@ function SheetCanvas({
   gapY: number;
   allPlacements: Placement[];
   zoomed: boolean;
+  sheetCount: number;
+  onMoveToSheet: (placement: Placement, sheetIndex: number) => void;
+  onTabHover: (sheetIndex: number | null) => void;
 }) {
   const selectedGroupId = useStudio((state) => state.selectedGroupId);
   const select = useStudio((state) => state.select);
@@ -153,10 +166,15 @@ function SheetCanvas({
     const dx = (event.clientX - drag.startX) / scale;
     const dy = (event.clientY - drag.startY) / scale;
     setOffset(snappedPosition(placement, dx, dy));
+    onTabHover(tabAt(event.clientX, event.clientY));
   };
 
-  const onPointerUp = (placement: Placement) => {
-    if (drag?.itemId === placement.itemId && offset) {
+  const onPointerUp = (event: PointerEvent<HTMLButtonElement>, placement: Placement) => {
+    const tab = tabAt(event.clientX, event.clientY);
+    onTabHover(null);
+    if (drag?.itemId === placement.itemId && tab !== null && tab !== placement.sheetIndex) {
+      onMoveToSheet(placement, tab);
+    } else if (drag?.itemId === placement.itemId && offset) {
       tryPlace(placement, offset.x, offset.y);
     }
     setDrag(null);
@@ -164,6 +182,14 @@ function SheetCanvas({
   };
 
   const onKeyDown = (event: KeyboardEvent<HTMLButtonElement>, placement: Placement) => {
+    if (event.shiftKey && (event.key === "PageUp" || event.key === "PageDown")) {
+      const target = placement.sheetIndex + (event.key === "PageDown" ? 1 : -1);
+      if (target >= 0 && target < sheetCount) {
+        event.preventDefault();
+        onMoveToSheet(placement, target);
+      }
+      return;
+    }
     const step = event.shiftKey ? 0.1 : 1;
     const moves: Record<string, [number, number]> = {
       ArrowLeft: [-step, 0],
@@ -210,8 +236,9 @@ function SheetCanvas({
             title={`${name} • ${label}`}
             onPointerDown={(event) => onPointerDown(event, placement)}
             onPointerMove={(event) => onPointerMove(event, placement)}
-            onPointerUp={() => onPointerUp(placement)}
+            onPointerUp={(event) => onPointerUp(event, placement)}
             onPointerCancel={() => {
+              onTabHover(null);
               setDrag(null);
               setOffset(null);
             }}
@@ -257,6 +284,10 @@ export function SheetPreview() {
   const manual = useStudio((state) => state.manual);
   const manualNotice = useStudio((state) => state.manualNotice);
   const resetManualPlacements = useStudio((state) => state.resetManualPlacements);
+  const setManualPlacement = useStudio((state) => state.setManualPlacement);
+  const extraSheets = useStudio((state) => state.extraSheets);
+  const addSheet = useStudio((state) => state.addSheet);
+  const removeLastSheet = useStudio((state) => state.removeLastSheet);
   const dismissManualNotice = useStudio((state) => state.dismissManualNotice);
   const images = usePrintImages(layout.placements);
 
@@ -267,6 +298,8 @@ export function SheetPreview() {
   /** The sheet point under the pointer during a wheel zoom, kept there after the resize. */
   const anchor = useRef<{ x: number; y: number; fx: number; fy: number } | null>(null);
   const [requestedSheet, setRequestedSheet] = useState(0);
+  const [dropTab, setDropTab] = useState<number | null>(null);
+  const tabsRef = useRef<HTMLDivElement>(null);
   const [confirmingReset, setConfirmingReset] = useState(false);
 
   useEffect(() => {
@@ -288,6 +321,33 @@ export function SheetPreview() {
   const scale = fit * zoom;
   const sheetIndex = clampIndex(requestedSheet, layout.sheetCount);
   const placements = layout.placements.filter((p) => p.sheetIndex === sheetIndex);
+  const emptySheet = placements.length === 0 && layout.sheetCount > 0;
+  // Only a blank sheet added at the end can go, so no other sheet changes number.
+  const canRemoveSheet = emptySheet && sheetIndex === layout.sheetCount - 1 && extraSheets > 0;
+
+  // Narrow screens scroll the tab row, so keep the open sheet's tab in view.
+  useEffect(() => {
+    tabsRef.current
+      ?.querySelector('[aria-selected="true"]')
+      ?.scrollIntoView({ block: "nearest", inline: "nearest" });
+  }, [sheetIndex, layout.sheetCount]);
+
+  const moveToSheet = (placement: Placement, target: number) => {
+    const spot = findFreeSpot(
+      placement,
+      target,
+      layout.placements,
+      sheet,
+      options.gapXmm,
+      options.gapYmm,
+    );
+    if (!spot) {
+      toast.error(`Sheet ${target + 1} has no room for this print.`);
+      return;
+    }
+    setManualPlacement(placement.itemId, { sheetIndex: target, ...spot });
+    setRequestedSheet(target);
+  };
 
   const groupNames = Object.fromEntries(groups.map((g) => [g.id, g.displayName]));
   const sizeLabels = Object.fromEntries(sizes.map((s) => [s.id, s.label]));
@@ -353,23 +413,37 @@ export function SheetPreview() {
       {/* Sized by this panel, not the screen, because tablet panes are narrower than phones held sideways. */}
       <div className="@container border-b border-line bg-panel">
         <div className="flex flex-wrap items-center justify-between gap-x-2 gap-y-1 px-4 py-2 short:py-0.5 max-sm:px-2 @xl:gap-x-4">
-          <div className="flex items-center gap-1 max-sm:gap-0">
+          <div className="flex min-w-0 items-center gap-1">
+            <div ref={tabsRef} role="tablist" aria-label="Sheets" className="flex min-w-0 items-center gap-1 overflow-x-auto">
+              {Array.from({ length: layout.sheetCount }, (_, index) => (
+                <button
+                  key={index}
+                  type="button"
+                  role="tab"
+                  aria-selected={index === sheetIndex}
+                  data-sheet-tab={index}
+                  onClick={() => setRequestedSheet(index)}
+                  className={`h-8 shrink-0 rounded-lg border px-3 text-[13px] whitespace-nowrap tabular-nums transition-colors duration-150 ease-out max-md:h-11 coarse:h-11 ${
+                    dropTab === index
+                      ? "border-primary bg-primary-soft text-ink"
+                      : index === sheetIndex
+                        ? "border-line-strong bg-panel font-medium text-ink"
+                        : "border-transparent text-muted hover:bg-page hover:text-ink"
+                  }`}
+                >
+                  Sheet {index + 1}
+                </button>
+              ))}
+            </div>
             <IconButton
-              label="Previous sheet"
-              disabled={sheetIndex === 0}
-              onClick={() => setRequestedSheet(sheetIndex - 1)}
+              label="Add sheet"
+              data-guide="add-sheet"
+              onClick={() => {
+                addSheet();
+                setRequestedSheet(layout.sheetCount);
+              }}
             >
-              <ChevronLeft aria-hidden className="size-4" />
-            </IconButton>
-            <span className="min-w-[72px] text-center text-[13px] tabular-nums sm:min-w-[88px]">
-              Sheet {layout.sheetCount === 0 ? 0 : sheetIndex + 1} of {layout.sheetCount}
-            </span>
-            <IconButton
-              label="Next sheet"
-              disabled={sheetIndex >= layout.sheetCount - 1}
-              onClick={() => setRequestedSheet(sheetIndex + 1)}
-            >
-              <ChevronRight aria-hidden className="size-4" />
+              <Plus aria-hidden className="size-4" />
             </IconButton>
           </div>
           <p className="text-xs text-muted tabular-nums @max-xl:order-last @max-xl:w-full @max-xl:px-2">
@@ -397,13 +471,34 @@ export function SheetPreview() {
         </div>
       </div>
 
-      {layout.errors.length > 0 || layout.problems.length > 0 || manualNotice ? (
+      {layout.errors.length > 0 || layout.problems.length > 0 || manualNotice || emptySheet ? (
         <div className="flex flex-col gap-2 border-b border-line bg-panel px-4 py-2">
           {layout.errors.map((error) => (
             <Notice key={error.code + error.itemId} tone="error">
               {error.message}
             </Notice>
           ))}
+          {emptySheet ? (
+            <Notice
+              action={
+                canRemoveSheet ? (
+                  <button
+                    type="button"
+                    className="font-medium underline underline-offset-2"
+                    onClick={() => {
+                      removeLastSheet();
+                      setRequestedSheet(sheetIndex - 1);
+                    }}
+                  >
+                    Remove sheet
+                  </button>
+                ) : undefined
+              }
+            >
+              Sheet {sheetIndex + 1} is empty. To fill it, open another sheet and drag a print onto
+              the Sheet {sheetIndex + 1} tab. Empty sheets are left out of exports.
+            </Notice>
+          ) : null}
           {layout.problems.length > 0 ? (
             <Notice tone="error">
               Some prints overlap or leave the printable area, so export is blocked until they are
@@ -444,6 +539,9 @@ export function SheetPreview() {
               gapX={options.gapXmm}
               gapY={options.gapYmm}
               zoomed={zoom > MIN_ZOOM}
+              sheetCount={layout.sheetCount}
+              onMoveToSheet={moveToSheet}
+              onTabHover={setDropTab}
             />
           ) : null}
         </div>

@@ -6,6 +6,7 @@ import { FileDown, ImageDown, Loader2, Printer } from "lucide-react";
 import { toast } from "sonner";
 import { Button, Field, Modal, Notice, SelectField } from "@/components/ui";
 import { useStudio } from "@/features/job/store";
+import { withoutEmptySheets } from "@/features/layout/sheets";
 import { useLayout } from "@/features/layout/useLayout";
 import { useShortcuts } from "@/features/studio/shortcuts";
 import {
@@ -36,6 +37,8 @@ export function ExportActions() {
   const [dpi, setDpi] = useState(DEFAULT_EXPORT_DPI);
 
   const blocker = exportBlocker(layout);
+  // Blank sheets added by hand are left out of exports.
+  const printedSheets = withoutEmptySheets(layout.placements).sheetCount;
 
   const snapshot = (): ExportSnapshot => {
     const state = useStudio.getState();
@@ -136,7 +139,7 @@ export function ExportActions() {
               });
             }}
           >
-            Export {layout.sheetCount === 1 ? "sheet" : `${layout.sheetCount} sheets`}
+            Export {printedSheets === 1 ? "sheet" : `${printedSheets} sheets`}
           </Button>
         }
       >

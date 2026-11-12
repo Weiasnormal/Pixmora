@@ -26,6 +26,8 @@ type Snapshot = {
   groups: PhotoGroup[];
   options: LayoutOptions;
   manual: Record<string, ManualPlacement>;
+  /** Blank sheets added by hand after the packed ones, so prints can be moved onto them. */
+  extraSheets: number;
 };
 
 const HISTORY_LIMIT = 50;
@@ -77,6 +79,8 @@ type StudioState = Snapshot & {
   setManualPlacement: (itemId: string, placement: ManualPlacement) => void;
   resetManualPlacements: () => void;
   dismissManualNotice: () => void;
+  addSheet: () => void;
+  removeLastSheet: () => void;
 
   upsertPackage: (preset: PackagePreset) => void;
   removePackage: (packageId: string) => void;
@@ -95,7 +99,12 @@ function createId(prefix: string): string {
 }
 
 function snapshotOf(state: Snapshot): Snapshot {
-  return { groups: state.groups, options: state.options, manual: state.manual };
+  return {
+    groups: state.groups,
+    options: state.options,
+    manual: state.manual,
+    extraSheets: state.extraSheets,
+  };
 }
 
 function firstEnabledPackage(packages: PackagePreset[]): PackagePreset | undefined {
@@ -177,6 +186,7 @@ export const useStudio = create<StudioState>()(
         groups: [],
         options: DEFAULT_OPTIONS,
         manual: {},
+        extraSheets: 0,
         assets: {},
         library: {
           sizes: DEFAULT_PHOTO_SIZES,
@@ -254,6 +264,7 @@ export const useStudio = create<StudioState>()(
           set((state) => ({
             groups: [],
             manual: {},
+            extraSheets: 0,
             past: [],
             future: [],
             lastChange: null,
@@ -387,6 +398,14 @@ export const useStudio = create<StudioState>()(
 
         dismissManualNotice() {
           set({ manualNotice: false });
+        },
+
+        addSheet() {
+          commit((state) => ({ extraSheets: state.extraSheets + 1 }));
+        },
+
+        removeLastSheet() {
+          commit((state) => ({ extraSheets: Math.max(state.extraSheets - 1, 0) }));
         },
 
         upsertPackage(preset) {

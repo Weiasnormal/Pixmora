@@ -10,9 +10,10 @@ export function useLayout() {
   const library = useStudio((state) => state.library);
   const options = useStudio((state) => state.options);
   const manual = useStudio((state) => state.manual);
+  const extraSheets = useStudio((state) => state.extraSheets);
 
   return useMemo(
-    () => computeLayout(groups, library, options, manual),
-    [groups, library, options, manual],
+    () => computeLayout(groups, library, options, manual, extraSheets),
+    [groups, library, options, manual, extraSheets],
   );
 }

@@ -16,6 +16,7 @@ export function computeLayout(
   library: Library,
   options: LayoutOptions,
   manual: Record<string, ManualPlacement>,
+  extraSheets = 0,
 ): StudioLayout {
   const packed = packItems(expandPrintItems(groups, library), {
     sheet: resolveSheet(options, library.profiles),
@@ -29,10 +30,17 @@ export function computeLayout(
     return moved ? { ...placement, ...moved } : placement;
   });
 
+  // Added sheets follow the packed ones, and a print moved by hand keeps its sheet in the count.
+  const sheetCount = Math.max(
+    packed.sheetCount + extraSheets,
+    ...placements.map((placement) => placement.sheetIndex + 1),
+  );
+
   return {
     ...packed,
+    sheetCount,
     placements,
-    utilization: computeUtilization(placements, packed.sheet, packed.sheetCount),
+    utilization: computeUtilization(placements, packed.sheet, sheetCount),
     problems: findPlacementProblems(placements, packed.sheet),
   };
 }
