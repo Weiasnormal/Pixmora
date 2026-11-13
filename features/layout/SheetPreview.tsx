@@ -8,12 +8,12 @@ import {
   type KeyboardEvent,
   type PointerEvent,
 } from "react";
-import { Minus, Plus } from "lucide-react";
+import { Minus, Plus, Trash2 } from "lucide-react";
 import { toast } from "sonner";
 import { Button, ConfirmDialog, IconButton, Notice } from "@/components/ui";
 import { imageKey } from "@/features/export/pdf";
 import { useStudio } from "@/features/job/store";
-import type { Placement, SheetBounds } from "@/features/job/types";
+import type { Placement, SheetBounds, SheetPage } from "@/features/job/types";
 import { useShortcuts } from "@/features/studio/shortcuts";
 import { findFreeSpot } from "./sheets";
 import { formatSize } from "./units";
@@ -72,6 +72,7 @@ function snap(
 }
 
 function SheetCanvas({
+  page,
   sheet,
   placements,
   scale,
@@ -86,6 +87,7 @@ function SheetCanvas({
   onMoveToSheet,
   onTabHover,
 }: {
+  page: SheetPage;
   sheet: SheetBounds;
   placements: Placement[];
   scale: number;
@@ -124,7 +126,8 @@ function SheetCanvas({
       return false;
     }
     setManualPlacement(placement.itemId, {
-      sheetIndex: placement.sheetIndex,
+      sheetId: page.sheetId,
+      pageInSheet: page.pageInSheet,
       xMm: candidate.xMm,
       yMm: candidate.yMm,
     });
@@ -280,14 +283,16 @@ export function SheetPreview() {
   const layout = useLayout();
   const groups = useStudio((state) => state.groups);
   const sizes = useStudio((state) => state.library.sizes);
-  const options = useStudio((state) => state.options);
+  const sheets = useStudio((state) => state.sheets);
+  const activeSheetId = useStudio((state) => state.activeSheetId);
+  const activePageInSheet = useStudio((state) => state.activePageInSheet);
+  const openSheet = useStudio((state) => state.openSheet);
   const manual = useStudio((state) => state.manual);
   const manualNotice = useStudio((state) => state.manualNotice);
   const resetManualPlacements = useStudio((state) => state.resetManualPlacements);
   const setManualPlacement = useStudio((state) => state.setManualPlacement);
-  const extraSheets = useStudio((state) => state.extraSheets);
   const addSheet = useStudio((state) => state.addSheet);
-  const removeLastSheet = useStudio((state) => state.removeLastSheet);
+  const removeSheet = useStudio((state) => state.removeSheet);
   const dismissManualNotice = useStudio((state) => state.dismissManualNotice);
   const images = usePrintImages(layout.placements);
 
@@ -297,10 +302,10 @@ export function SheetPreview() {
   const zoomRef = useRef(zoom);
   /** The sheet point under the pointer during a wheel zoom, kept there after the resize. */
   const anchor = useRef<{ x: number; y: number; fx: number; fy: number } | null>(null);
-  const [requestedSheet, setRequestedSheet] = useState(0);
   const [dropTab, setDropTab] = useState<number | null>(null);
   const tabsRef = useRef<HTMLDivElement>(null);
   const [confirmingReset, setConfirmingReset] = useState(false);
+  const [confirmingRemove, setConfirmingRemove] = useState(false);
 
   useEffect(() => {
     const element = frameRef.current;
@@ -312,18 +317,38 @@ export function SheetPreview() {
     return () => observer.disconnect();
   }, []);
 
-  const { sheet } = layout;
+  // The open tab is the open sheet's page, so adding a photo always lands on what is shown.
+  const sheetNumber = (sheetId: string) => sheets.findIndex((s) => s.id === sheetId) + 1;
+  const sheetPages = layout.pages
+    .map((page, index) => ({ page, index }))
+    .filter(({ page }) => page.sheetId === activeSheetId);
+  const sheetIndex =
+    sheetPages[clampIndex(activePageInSheet, sheetPages.length)]?.index ??
+    clampIndex(0, layout.sheetCount);
+  const page = layout.pages[sheetIndex];
+  const sheet = page.bounds;
+  const tabLabel = (target: SheetPage) =>
+    target.pageInSheet === 0
+      ? `Sheet ${sheetNumber(target.sheetId)}`
+      : `Sheet ${sheetNumber(target.sheetId)} · page ${target.pageInSheet + 1}`;
+  const openPage = (index: number) => {
+    const target = layout.pages[index];
+    if (target) openSheet(target.sheetId, target.pageInSheet);
+  };
   const padding = frame.width < NARROW_FRAME ? FRAME_PADDING_NARROW : FRAME_PADDING;
   const fit = Math.min(
     Math.max(frame.width - padding * 2, 120) / sheet.widthMm,
     Math.max(frame.height - padding * 2, 120) / sheet.heightMm,
   );
   const scale = fit * zoom;
-  const sheetIndex = clampIndex(requestedSheet, layout.sheetCount);
   const placements = layout.placements.filter((p) => p.sheetIndex === sheetIndex);
   const emptySheet = placements.length === 0 && layout.sheetCount > 0;
-  // Only a blank sheet added at the end can go, so no other sheet changes number.
-  const canRemoveSheet = emptySheet && sheetIndex === layout.sheetCount - 1 && extraSheets > 0;
+  const pageUse =
+    placements.reduce((sum, p) => sum + p.widthMm * p.heightMm, 0) /
+    (sheet.widthMm * sheet.heightMm);
+  const photosOnSheet = groups.filter((g) => g.sheetId === page.sheetId).length;
+  // The last sheet stays, so there is always a paper to add photos to.
+  const canRemoveSheet = sheets.length > 1;
 
   // Narrow screens scroll the tab row, so keep the open sheet's tab in view.
   useEffect(() => {
@@ -333,20 +358,27 @@ export function SheetPreview() {
   }, [sheetIndex, layout.sheetCount]);
 
   const moveToSheet = (placement: Placement, target: number) => {
+    const targetPage = layout.pages[target];
+    if (!targetPage) return;
+    // The print takes the paper and gaps of the sheet it moves to.
     const spot = findFreeSpot(
       placement,
       target,
       layout.placements,
-      sheet,
-      options.gapXmm,
-      options.gapYmm,
+      targetPage.bounds,
+      targetPage.gapXmm,
+      targetPage.gapYmm,
     );
     if (!spot) {
-      toast.error(`Sheet ${target + 1} has no room for this print.`);
+      toast.error(`${tabLabel(targetPage)} has no room for this print.`);
       return;
     }
-    setManualPlacement(placement.itemId, { sheetIndex: target, ...spot });
-    setRequestedSheet(target);
+    setManualPlacement(placement.itemId, {
+      sheetId: targetPage.sheetId,
+      pageInSheet: targetPage.pageInSheet,
+      ...spot,
+    });
+    openSheet(targetPage.sheetId, targetPage.pageInSheet);
   };
 
   const groupNames = Object.fromEntries(groups.map((g) => [g.id, g.displayName]));
@@ -404,8 +436,8 @@ export function SheetPreview() {
     "mod++": zoomIn,
     "mod+-": zoomOut,
     "mod+0": () => setZoom(MIN_ZOOM),
-    pageup: () => setRequestedSheet(Math.max(sheetIndex - 1, 0)),
-    pagedown: () => setRequestedSheet(clampIndex(sheetIndex + 1, layout.sheetCount)),
+    pageup: () => openPage(Math.max(sheetIndex - 1, 0)),
+    pagedown: () => openPage(clampIndex(sheetIndex + 1, layout.sheetCount)),
   });
 
   return (
@@ -415,14 +447,14 @@ export function SheetPreview() {
         <div className="flex flex-wrap items-center justify-between gap-x-2 gap-y-1 px-4 py-2 short:py-0.5 max-sm:px-2 @xl:gap-x-4">
           <div className="flex min-w-0 items-center gap-1">
             <div ref={tabsRef} role="tablist" aria-label="Sheets" className="flex min-w-0 items-center gap-1 overflow-x-auto">
-              {Array.from({ length: layout.sheetCount }, (_, index) => (
+              {layout.pages.map((tab, index) => (
                 <button
-                  key={index}
+                  key={`${tab.sheetId}:${tab.pageInSheet}`}
                   type="button"
                   role="tab"
                   aria-selected={index === sheetIndex}
                   data-sheet-tab={index}
-                  onClick={() => setRequestedSheet(index)}
+                  onClick={() => openPage(index)}
                   className={`h-8 shrink-0 rounded-lg border px-3 text-[13px] whitespace-nowrap tabular-nums transition-colors duration-150 ease-out max-md:h-11 coarse:h-11 ${
                     dropTab === index
                       ? "border-primary bg-primary-soft text-ink"
@@ -431,24 +463,27 @@ export function SheetPreview() {
                         : "border-transparent text-muted hover:bg-page hover:text-ink"
                   }`}
                 >
-                  Sheet {index + 1}
+                  {tabLabel(tab)}
                 </button>
               ))}
             </div>
-            <IconButton
-              label="Add sheet"
-              data-guide="add-sheet"
-              onClick={() => {
-                addSheet();
-                setRequestedSheet(layout.sheetCount);
-              }}
-            >
+            <IconButton label="Add sheet" data-guide="add-sheet" onClick={addSheet}>
               <Plus aria-hidden className="size-4" />
             </IconButton>
+            {canRemoveSheet ? (
+              <IconButton
+                label={`Remove Sheet ${sheetNumber(page.sheetId)}`}
+                onClick={() =>
+                  photosOnSheet > 0 ? setConfirmingRemove(true) : removeSheet(page.sheetId)
+                }
+              >
+                <Trash2 aria-hidden className="size-4" />
+              </IconButton>
+            ) : null}
           </div>
           <p className="text-xs text-muted tabular-nums @max-xl:order-last @max-xl:w-full @max-xl:px-2">
-            {formatSize(sheet.widthMm, sheet.heightMm)} • {Math.round(layout.utilization * 100)}% of
-            paper used
+            {formatSize(sheet.widthMm, sheet.heightMm)} • {Math.round(pageUse * 100)}% of paper
+            used
           </p>
           <div className="flex flex-wrap items-center gap-1 max-sm:gap-0">
             {hasManual ? (
@@ -481,22 +516,19 @@ export function SheetPreview() {
           {emptySheet ? (
             <Notice
               action={
-                canRemoveSheet ? (
+                canRemoveSheet && photosOnSheet === 0 ? (
                   <button
                     type="button"
                     className="font-medium underline underline-offset-2"
-                    onClick={() => {
-                      removeLastSheet();
-                      setRequestedSheet(sheetIndex - 1);
-                    }}
+                    onClick={() => removeSheet(page.sheetId)}
                   >
                     Remove sheet
                   </button>
                 ) : undefined
               }
             >
-              Sheet {sheetIndex + 1} is empty. To fill it, open another sheet and drag a print onto
-              the Sheet {sheetIndex + 1} tab. Empty sheets are left out of exports.
+              {tabLabel(page)} is empty. Photos you add now go on this sheet, or drag a print
+              onto its tab. Empty sheets are left out of exports.
             </Notice>
           ) : null}
           {layout.problems.length > 0 ? (
@@ -529,6 +561,7 @@ export function SheetPreview() {
           {frame.width > 0 ? (
             <SheetCanvas
               key={sheetIndex}
+              page={page}
               sheet={sheet}
               placements={placements}
               allPlacements={placements}
@@ -536,8 +569,8 @@ export function SheetPreview() {
               images={images}
               groupNames={groupNames}
               sizeLabels={sizeLabels}
-              gapX={options.gapXmm}
-              gapY={options.gapYmm}
+              gapX={page.gapXmm}
+              gapY={page.gapYmm}
               zoomed={zoom > MIN_ZOOM}
               sheetCount={layout.sheetCount}
               onMoveToSheet={moveToSheet}
@@ -554,6 +587,14 @@ export function SheetPreview() {
         confirmLabel="Reset layout"
         onConfirm={resetManualPlacements}
         onClose={() => setConfirmingReset(false)}
+      />
+      <ConfirmDialog
+        open={confirmingRemove}
+        title={`Remove Sheet ${sheetNumber(page.sheetId)}?`}
+        body={`Its ${photosOnSheet === 1 ? "photo is" : `${photosOnSheet} photos are`} removed with it. Undo brings the sheet back.`}
+        confirmLabel="Remove sheet"
+        onConfirm={() => removeSheet(page.sheetId)}
+        onClose={() => setConfirmingRemove(false)}
       />
     </div>
   );
