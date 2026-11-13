@@ -5,6 +5,7 @@ import { friendlyMessage } from "@/features/errors";
 import { FileDown, ImageDown, Loader2, Printer } from "lucide-react";
 import { toast } from "sonner";
 import { Button, Field, Modal, Notice, SelectField } from "@/components/ui";
+import { shouldAskAfterExport } from "@/features/feedback/prompt";
 import { useStudio } from "@/features/job/store";
 import { withoutEmptySheets } from "@/features/layout/sheets";
 import { useLayout } from "@/features/layout/useLayout";
@@ -54,7 +55,20 @@ export function ExportActions() {
   const run = async (kind: Exclude<Busy, null>, action: () => Promise<string>) => {
     setBusy(kind);
     try {
-      toast.success(await action());
+      const done = await action();
+      // A finished export is when people know how it went, so that is when to ask.
+      if (shouldAskAfterExport()) {
+        toast.success(done, {
+          description: "How did it go?",
+          duration: 10_000,
+          action: {
+            label: "Rate Pixmora",
+            onClick: () => useStudio.getState().setFeedbackOpen(true),
+          },
+        });
+      } else {
+        toast.success(done);
+      }
     } catch (error) {
       toast.error(
         friendlyMessage(error, "Export didn't finish. Try again, and reload the page if it keeps failing."),
