@@ -126,6 +126,11 @@ const TOURS: Record<GuideTour, Tour> = {
       at: "below",
       text: "Keyboard shortcuts are here, with the print guide beside them.",
     },
+    {
+      target: '[data-guide="feedback"]',
+      at: "below",
+      text: "Something to fix or add? Tell us here. Every message is read.",
+    },
     { pane: "sheet", text: "That's the tour. Happy printing!" },
   ],
   },

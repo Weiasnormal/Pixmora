@@ -2,12 +2,13 @@
 
 import { useEffect, useState, type DragEvent } from "react";
 import Link from "next/link";
-import { CircleHelp, Keyboard, MousePointer2, Redo2, Undo2 } from "lucide-react";
+import { CircleHelp, Keyboard, MessageSquareText, MousePointer2, Redo2, Undo2 } from "lucide-react";
 import { Toaster } from "sonner";
 import { Logo } from "@/components/Logo";
 import { Button, IconButton, Segmented } from "@/components/ui";
 import { ExportActions } from "@/features/export/ExportActions";
 import { BackgroundTouchUp } from "@/features/background/BackgroundTouchUp";
+import { FeedbackDialog } from "@/features/feedback/FeedbackDialog";
 import { CropEditor } from "@/features/images/CropEditor";
 import { PhotoPanel } from "@/features/images/PhotoPanel";
 import { AddPhotoButton, PhotoQueue, useAddPhotos } from "@/features/job/PhotoQueue";
@@ -101,6 +102,14 @@ function TopBar({
             <MousePointer2 aria-hidden className="size-4" />
           </IconButton>
         ) : null}
+        <IconButton
+          label="Send feedback"
+          data-guide="feedback"
+          className="max-sm:hidden"
+          onClick={() => useStudio.getState().setFeedbackOpen(true)}
+        >
+          <MessageSquareText aria-hidden className="size-4" />
+        </IconButton>
         <div className="flex items-center gap-0.5 max-sm:hidden">
           <IconButton label="Keyboard shortcuts" data-guide="shortcuts" onClick={onShortcuts}>
             <Keyboard aria-hidden className="size-4" />
@@ -233,6 +242,7 @@ export function StudioWorkspace() {
   const addPhotos = useAddPhotos();
   const [pane, setPane] = useState<Pane>("sheet");
   const [shortcutsOpen, setShortcutsOpen] = useState(false);
+  const feedbackOpen = useStudio((state) => state.feedbackOpen);
 
   useEffect(() => {
     void useStudio.persist.rehydrate();
@@ -346,6 +356,10 @@ export function StudioWorkspace() {
       <GuideCursor
         pane={pane}
         onPaneChange={setPane}
+      />
+      <FeedbackDialog
+        open={feedbackOpen}
+        onClose={() => useStudio.getState().setFeedbackOpen(false)}
       />
       <Toaster position="top-center" toastOptions={{ className: "text-[13px]" }} />
     </div>

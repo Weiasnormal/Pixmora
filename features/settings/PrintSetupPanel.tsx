@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { FileDown } from "lucide-react";
+import { FileDown, MessageSquareText } from "lucide-react";
 import Link from "next/link";
 import { toast } from "sonner";
 import {
@@ -285,6 +285,19 @@ export function PrintSetupPanel() {
           Download calibration sheet
         </Button>
       </PanelSection>
+
+      {/* Phones have no room for the feedback button in the top bar, so it also lives here. */}
+      <div className="border-t border-line p-4">
+        <Button
+          variant="ghost"
+          size="sm"
+          className="w-full"
+          onClick={() => useStudio.getState().setFeedbackOpen(true)}
+        >
+          <MessageSquareText aria-hidden className="size-4" />
+          Send feedback
+        </Button>
+      </div>
 
       <LibraryDialog open={printersOpen} onClose={() => setPrintersOpen(false)} initialTab="printers" />
     </div>

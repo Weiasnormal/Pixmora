@@ -45,6 +45,7 @@ type StudioState = Snapshot & {
   panelTab: PanelTab;
   /** The cursor tour that is playing, if any. */
   guide: GuideTour | null;
+  feedbackOpen: boolean;
   selectedGroupId: string | null;
   editingSizeId: string | null;
   view: WorkspaceView;
@@ -78,6 +79,7 @@ type StudioState = Snapshot & {
   setPanelTab: (tab: PanelTab) => void;
   finishSetup: () => void;
   setGuide: (guide: GuideTour | null) => void;
+  setFeedbackOpen: (open: boolean) => void;
 
   updateOptions: (patch: Partial<LayoutOptions>, historyKey?: string) => void;
   setManualPlacement: (itemId: string, placement: ManualPlacement) => void;
@@ -201,6 +203,7 @@ export const useStudio = create<StudioState>()(
         hydrated: false,
         panelTab: "photo",
         guide: null,
+        feedbackOpen: false,
         selectedGroupId: null,
         editingSizeId: null,
         view: "sheets",
@@ -388,6 +391,10 @@ export const useStudio = create<StudioState>()(
 
         setGuide(guide) {
           set({ guide });
+        },
+
+        setFeedbackOpen(feedbackOpen) {
+          set({ feedbackOpen });
         },
 
         updateOptions(patch, historyKey) {

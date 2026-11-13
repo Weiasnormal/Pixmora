@@ -4,6 +4,7 @@ import "./homepage.css";
 import Link from "next/link";
 import { ArrowRight } from "lucide-react";
 import { Logo } from "@/components/Logo";
+import { FeedbackLink } from "@/features/feedback/FeedbackDialog";
 import type { PrintItem } from "@/features/job/types";
 import { packItems } from "@/features/layout/pack";
 
@@ -146,6 +147,9 @@ export default function Home() {
       <footer className="border-t border-line">
         <div className="mx-auto flex w-full max-w-6xl flex-wrap items-center justify-between gap-4 px-4 py-6 text-[13px] text-muted sm:px-8">
           <span className="footer-brand"><Logo variant="icon" height={32} />Photo preparation and print layout.</span>
+          <span className="text-muted">
+            Ideas or problems? <FeedbackLink />
+          </span>
           <span className="flex items-center gap-2" aria-hidden>
             <span className="size-2 rounded-full bg-cyan" />
             <span className="size-2 rounded-full bg-magenta" />

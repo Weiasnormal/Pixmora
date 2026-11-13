@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 import { Logo } from "@/components/Logo";
+import { FeedbackLink } from "@/features/feedback/FeedbackDialog";
 
 export const metadata: Metadata = {
   title: "Print guide | Pixmora",
@@ -98,6 +99,14 @@ export default function HelpPage() {
             Requirements differ by country and purpose. Check the size with the issuing authority,
             then set it under Photo sizes in the Studio’s Packages tab. The built-in passport size is only a
             starting value, and Pixmora asks you to confirm it.
+          </p>
+        </section>
+
+        <section className="mt-12 border-t border-line pt-8">
+          <h2 className="text-xl font-semibold">Something missing?</h2>
+          <p className="mt-4 max-w-[68ch] leading-relaxed text-muted">
+            If this guide didn’t answer your question, or a print came out wrong, tell us what
+            happened. <FeedbackLink />
           </p>
         </section>
       </main>
