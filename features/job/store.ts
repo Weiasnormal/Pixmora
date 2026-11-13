@@ -17,6 +17,7 @@ import type {
   PhotoSelection,
   PhotoSize,
   PrinterProfile,
+  SheetSpec,
 } from "./types";
 
 export type WorkspaceView = "sheets" | "crop" | "touchup";
@@ -25,10 +26,9 @@ export type GuideTour = "setup" | "studio";
 
 type Snapshot = {
   groups: PhotoGroup[];
-  options: LayoutOptions;
+  /** The papers in this job, in tab order. Each has its own settings and its own photos. */
+  sheets: SheetSpec[];
   manual: Record<string, ManualPlacement>;
-  /** Blank sheets added by hand after the packed ones, so prints can be moved onto them. */
-  extraSheets: number;
 };
 
 const HISTORY_LIMIT = 50;
@@ -36,6 +36,12 @@ const HISTORY_LIMIT = 50;
 const COALESCE_MS = 800;
 
 type StudioState = Snapshot & {
+  /** Saved print settings: where a new job's first sheet starts. Also holds the shop-wide DPI warning. */
+  options: LayoutOptions;
+  /** The sheet that is open. New photos are added to it and the Print tab edits it. */
+  activeSheetId: string;
+  /** Which page of the open sheet is shown, when it holds more than one paper's worth. */
+  activePageInSheet: number;
   assets: Record<string, PhotoAsset>;
   library: Library;
   /** First visits set up packages before anything else. Saved with the library. */
@@ -81,12 +87,18 @@ type StudioState = Snapshot & {
   setGuide: (guide: GuideTour | null) => void;
   setFeedbackOpen: (open: boolean) => void;
 
+  /** Changes the open sheet's settings. The DPI warning is shop-wide, so it changes for all. */
   updateOptions: (patch: Partial<LayoutOptions>, historyKey?: string) => void;
+  /** Copies the open sheet's settings to every sheet. */
+  applyOptionsToAllSheets: () => void;
   setManualPlacement: (itemId: string, placement: ManualPlacement) => void;
   resetManualPlacements: () => void;
   dismissManualNotice: () => void;
+  /** Adds a sheet with the open sheet's settings and opens it. */
   addSheet: () => void;
-  removeLastSheet: () => void;
+  /** Removes a sheet and the photos on it. The last sheet stays. */
+  removeSheet: (sheetId: string) => void;
+  openSheet: (sheetId: string, pageInSheet?: number) => void;
 
   upsertPackage: (preset: PackagePreset) => void;
   removePackage: (packageId: string) => void;
@@ -107,10 +119,20 @@ function createId(prefix: string): string {
 function snapshotOf(state: Snapshot): Snapshot {
   return {
     groups: state.groups,
-    options: state.options,
+    sheets: state.sheets,
     manual: state.manual,
-    extraSheets: state.extraSheets,
   };
+}
+
+function newSheet(options: LayoutOptions): SheetSpec {
+  return { id: createId("sheet"), options: structuredClone(options) };
+}
+
+const FIRST_SHEET_ID = "sheet-1";
+
+/** The open sheet, or the first one if it was removed. */
+export function activeSheetOf(state: Pick<StudioState, "sheets" | "activeSheetId">): SheetSpec {
+  return state.sheets.find((sheet) => sheet.id === state.activeSheetId) ?? state.sheets[0];
 }
 
 function firstEnabledPackage(packages: PackagePreset[]): PackagePreset | undefined {
@@ -172,8 +194,8 @@ export const useStudio = create<StudioState>()(
           const stale =
             moved &&
             patch.manual === undefined &&
-            layoutSignature(state.groups, state.library, state.options) !==
-              layoutSignature(next.groups, state.library, next.options);
+            layoutSignature(state.groups, state.library, state.sheets) !==
+              layoutSignature(next.groups, state.library, next.sheets);
 
           return {
             ...next,
@@ -190,9 +212,11 @@ export const useStudio = create<StudioState>()(
 
       return {
         groups: [],
+        sheets: [{ id: FIRST_SHEET_ID, options: DEFAULT_OPTIONS }],
         options: DEFAULT_OPTIONS,
+        activeSheetId: FIRST_SHEET_ID,
+        activePageInSheet: 0,
         manual: {},
-        extraSheets: 0,
         assets: {},
         library: {
           sizes: DEFAULT_PHOTO_SIZES,
@@ -226,6 +250,8 @@ export const useStudio = create<StudioState>()(
             selection,
             editsByPhotoSize: {},
             enabled: true,
+            // A photo goes on the sheet that is open, like putting it on that paper.
+            sheetId: activeSheetOf(get()).id,
           };
           set((state) => ({ assets: { ...state.assets, [asset.id]: asset } }));
           commit((state) => ({ groups: [...state.groups, group] }));
@@ -260,7 +286,7 @@ export const useStudio = create<StudioState>()(
             const stillSelected = state.groups.some((g) => g.id === state.selectedGroupId);
             const selectedGroupId = stillSelected
               ? state.selectedGroupId
-              : (state.groups[0]?.id ?? null);
+              : (state.groups.find((g) => g.sheetId === activeSheetOf(state).id)?.id ?? null);
             return {
               selectedGroupId,
               view: selectedGroupId ? state.view : "sheets",
@@ -271,8 +297,10 @@ export const useStudio = create<StudioState>()(
         clearJob() {
           set((state) => ({
             groups: [],
+            sheets: [{ id: FIRST_SHEET_ID, options: state.options }],
+            activeSheetId: FIRST_SHEET_ID,
+            activePageInSheet: 0,
             manual: {},
-            extraSheets: 0,
             past: [],
             future: [],
             lastChange: null,
@@ -398,10 +426,35 @@ export const useStudio = create<StudioState>()(
         },
 
         updateOptions(patch, historyKey) {
+          const { minDpi, ...paper } = patch;
+          if (minDpi !== undefined) {
+            set((state) => ({
+              options: { ...state.options, minDpi },
+              sheets: state.sheets.map((sheet) => ({
+                ...sheet,
+                options: { ...sheet.options, minDpi },
+              })),
+            }));
+          }
+          if (Object.keys(paper).length === 0) return;
+          const sheetId = activeSheetOf(get()).id;
           commit(
-            (state) => ({ options: { ...state.options, ...patch } }),
-            historyKey ? `options:${historyKey}` : undefined,
+            (state) => ({
+              sheets: state.sheets.map((sheet) =>
+                sheet.id === sheetId ? { ...sheet, options: { ...sheet.options, ...paper } } : sheet,
+              ),
+            }),
+            historyKey ? `options:${sheetId}:${historyKey}` : undefined,
           );
+          // The last settings used become the starting point for the next job.
+          set((state) => ({ options: { ...state.options, ...paper } }));
+        },
+
+        applyOptionsToAllSheets() {
+          const source = activeSheetOf(get()).options;
+          commit((state) => ({
+            sheets: state.sheets.map((sheet) => ({ ...sheet, options: structuredClone(source) })),
+          }));
         },
 
         setManualPlacement(itemId, placement) {
@@ -417,11 +470,59 @@ export const useStudio = create<StudioState>()(
         },
 
         addSheet() {
-          commit((state) => ({ extraSheets: state.extraSheets + 1 }));
+          const sheet = newSheet(activeSheetOf(get()).options);
+          commit((state) => {
+            const index = state.sheets.findIndex((s) => s.id === activeSheetOf(state).id);
+            const sheets = [...state.sheets];
+            sheets.splice(index + 1, 0, sheet);
+            return { sheets };
+          });
+          get().openSheet(sheet.id);
         },
 
-        removeLastSheet() {
-          commit((state) => ({ extraSheets: Math.max(state.extraSheets - 1, 0) }));
+        removeSheet(sheetId) {
+          const state = get();
+          if (state.sheets.length <= 1) return;
+          const index = state.sheets.findIndex((s) => s.id === sheetId);
+          if (index < 0) return;
+          const removedGroups = new Set(
+            state.groups.filter((g) => g.sheetId === sheetId).map((g) => g.id),
+          );
+          commit((current) => ({
+            sheets: current.sheets.filter((s) => s.id !== sheetId),
+            groups: current.groups.filter((g) => !removedGroups.has(g.id)),
+            manual: Object.fromEntries(
+              Object.entries(current.manual).filter(
+                ([itemId, moved]) =>
+                  moved.sheetId !== sheetId && !removedGroups.has(itemId.split(":")[0]),
+              ),
+            ),
+          }));
+          const remaining = get().sheets;
+          get().openSheet(remaining[Math.max(index - 1, 0)].id);
+        },
+
+        openSheet(sheetId, pageInSheet = 0) {
+          set((state) => {
+            if (!state.sheets.some((s) => s.id === sheetId)) return {};
+            const sameSheet = state.groups.find(
+              (g) => g.id === state.selectedGroupId && g.sheetId === sheetId,
+            );
+            // The Photo tab follows the open sheet, so it never edits a photo on another paper.
+            const group = sameSheet ?? state.groups.find((g) => g.sheetId === sheetId);
+            return {
+              activeSheetId: sheetId,
+              activePageInSheet: pageInSheet,
+              selectedGroupId: group?.id ?? null,
+              editingSizeId:
+                group && group.id === state.selectedGroupId
+                  ? state.editingSizeId
+                  : group
+                    ? (groupSizeIds(group, state.library.packages)[0] ?? null)
+                    : null,
+              view: group ? state.view : "sheets",
+            };
+          });
         },
 
         upsertPackage(preset) {
@@ -485,11 +586,11 @@ export const useStudio = create<StudioState>()(
         },
 
         removeProfile(profileId) {
+          const clear = (options: LayoutOptions) =>
+            options.printerProfileId === profileId ? { ...options, printerProfileId: null } : options;
           set((state) => ({
-            options:
-              state.options.printerProfileId === profileId
-                ? { ...state.options, printerProfileId: null }
-                : state.options,
+            options: clear(state.options),
+            sheets: state.sheets.map((sheet) => ({ ...sheet, options: clear(sheet.options) })),
             library: {
               ...state.library,
               profiles: state.library.profiles.filter((p) => p.id !== profileId),
@@ -532,9 +633,14 @@ export const useStudio = create<StudioState>()(
 
       function settleSelection() {
         set((state) => {
-          if (state.groups.some((g) => g.id === state.selectedGroupId)) return {};
-          const group = state.groups[0];
+          const activeSheetId = activeSheetOf(state).id;
+          const onSheet = state.groups.filter((g) => g.sheetId === activeSheetId);
+          if (onSheet.some((g) => g.id === state.selectedGroupId)) {
+            return { activeSheetId };
+          }
+          const group = onSheet[0];
           return {
+            activeSheetId,
             selectedGroupId: group?.id ?? null,
             editingSizeId: group
               ? (groupSizeIds(group, state.library.packages)[0] ?? null)
@@ -556,10 +662,15 @@ export const useStudio = create<StudioState>()(
       }),
       migrate: migrateSettings,
       onRehydrateStorage: () => (state) => {
-        useStudio.setState({
+        useStudio.setState((current) => ({
           hydrated: true,
           panelTab: state?.setupDone ? "photo" : "packages",
-        });
+          // A new job's first sheet starts from the saved settings.
+          sheets:
+            current.groups.length === 0 && current.sheets.length === 1
+              ? [{ ...current.sheets[0], options: current.options }]
+              : current.sheets,
+        }));
       },
     },
   ),

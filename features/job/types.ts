@@ -100,6 +100,8 @@ export type PhotoGroup = {
   /** When set, every size of this group prints with this look instead of its own. */
   sharedLook?: PhotoLook | null;
   enabled: boolean;
+  /** The sheet (paper) this photo prints on. */
+  sheetId: string;
 };
 
 export type Orientation = "portrait" | "landscape";
@@ -117,6 +119,12 @@ export type LayoutOptions = {
   cutGuides: boolean;
   printerProfileId: string | null;
   minDpi: number;
+};
+
+/** One paper in the job, with its own print settings. Every photo belongs to one sheet. */
+export type SheetSpec = {
+  id: string;
+  options: LayoutOptions;
 };
 
 export type PrintItem = {
@@ -143,8 +151,10 @@ export type Placement = {
   rotated: boolean;
 };
 
+/** A print moved by hand: the sheet it now sits on, and which page of that sheet. */
 export type ManualPlacement = {
-  sheetIndex: number;
+  sheetId: string;
+  pageInSheet: number;
   xMm: Millimeters;
   yMm: Millimeters;
 };
@@ -153,6 +163,17 @@ export type SheetBounds = {
   widthMm: Millimeters;
   heightMm: Millimeters;
   insetMm: Millimeters;
+};
+
+/** One printed page: a sheet, or an overflow page of a sheet that holds more than its paper. */
+export type SheetPage = {
+  sheetId: string;
+  /** 0 for the sheet itself, 1 and up for its overflow pages. */
+  pageInSheet: number;
+  bounds: SheetBounds;
+  gapXmm: Millimeters;
+  gapYmm: Millimeters;
+  cutGuides: boolean;
 };
 
 export type LayoutIssue = { code: string; message: string; itemId?: string };

@@ -11,6 +11,7 @@ function makeGroup(overrides: Partial<PhotoGroup> = {}): PhotoGroup {
     selection: { kind: "package", packageId: "package-3", sets: 1 },
     editsByPhotoSize: {},
     enabled: true,
+    sheetId: "sheet-1",
     ...overrides,
   };
 }

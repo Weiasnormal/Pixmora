@@ -18,6 +18,7 @@ function group(id: string, selection: PhotoSelection): PhotoGroup {
     selection,
     editsByPhotoSize: { "2x2": createDefaultRecipe() },
     enabled: true,
+    sheetId: "sheet-1",
   };
 }
 
