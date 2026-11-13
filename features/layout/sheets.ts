@@ -1,15 +1,20 @@
-import type { Placement, SheetBounds } from "@/features/job/types";
+import type { Placement, SheetBounds, SheetPage } from "@/features/job/types";
 import { isInsideRegion, violatesGap } from "./validate";
 
-/** Only the sheets that hold a print, renumbered from zero, so exports skip blank pages. */
-export function withoutEmptySheets(placements: Placement[]): {
+/** Only the pages that hold a print, renumbered from zero, so exports skip blank pages. */
+export function withoutEmptySheets(
+  placements: Placement[],
+  pages: SheetPage[],
+): {
   sheetCount: number;
+  pages: SheetPage[];
   placements: Placement[];
 } {
   const used = [...new Set(placements.map((p) => p.sheetIndex))].sort((a, b) => a - b);
   const renumber = new Map(used.map((sheetIndex, index) => [sheetIndex, index]));
   return {
     sheetCount: used.length,
+    pages: used.map((sheetIndex) => pages[sheetIndex]),
     placements: placements.map((p) => ({ ...p, sheetIndex: renumber.get(p.sheetIndex) ?? 0 })),
   };
 }

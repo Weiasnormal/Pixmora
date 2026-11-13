@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import type { PrintItem, SheetBounds } from "@/features/job/types";
+import type { PrintItem, SheetBounds, SheetPage } from "@/features/job/types";
 import { packItems, type PackOptions } from "./pack";
 import { findPlacementProblems, violatesGap } from "./validate";
 
@@ -42,6 +42,18 @@ function random(seed: number) {
   };
 }
 
+/** The same paper on every page, as the layout gives the checker. */
+function pagesOf(sheet: SheetBounds, count: number): SheetPage[] {
+  return Array.from({ length: count }, (_, pageInSheet) => ({
+    sheetId: "sheet-1",
+    pageInSheet,
+    bounds: sheet,
+    gapXmm: 0,
+    gapYmm: 0,
+    cutGuides: false,
+  }));
+}
+
 describe("packItems", () => {
   it("fits the worked mixed-customer example on one A4 sheet", () => {
     const job = [...items("a", 4, 50.8, 50.8), ...items("b", 12, 25.4, 25.4)];
@@ -52,7 +64,7 @@ describe("packItems", () => {
     expect(new Set(result.placements.map((p) => p.groupId))).toEqual(
       new Set(["a", "b"]),
     );
-    expect(findPlacementProblems(result.placements, A4)).toEqual([]);
+    expect(findPlacementProblems(result.placements, pagesOf(A4, result.sheetCount))).toEqual([]);
   });
 
   it("keeps exact dimensions on every print", () => {
@@ -146,7 +158,7 @@ describe("packItems", () => {
     const sheet = { ...A4, insetMm: 5 };
     const result = packItems(items("a", 30, 50.8, 50.8), options({ sheet }));
 
-    expect(findPlacementProblems(result.placements, sheet)).toEqual([]);
+    expect(findPlacementProblems(result.placements, pagesOf(sheet, result.sheetCount))).toEqual([]);
     expect(Math.min(...result.placements.map((p) => p.xMm))).toBe(5);
   });
 
@@ -199,7 +211,7 @@ describe("packItems", () => {
 
       expect(result.placements).toHaveLength(job.length);
       expect(new Set(result.placements.map((p) => p.itemId)).size).toBe(job.length);
-      expect(findPlacementProblems(result.placements, sheet)).toEqual([]);
+      expect(findPlacementProblems(result.placements, pagesOf(sheet, result.sheetCount))).toEqual([]);
       for (let a = 0; a < result.placements.length; a += 1) {
         for (let b = a + 1; b < result.placements.length; b += 1) {
           expect(

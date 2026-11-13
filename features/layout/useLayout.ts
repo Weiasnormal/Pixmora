@@ -8,12 +8,11 @@ import { computeLayout } from "./computeLayout";
 export function useLayout() {
   const groups = useStudio((state) => state.groups);
   const library = useStudio((state) => state.library);
-  const options = useStudio((state) => state.options);
+  const sheets = useStudio((state) => state.sheets);
   const manual = useStudio((state) => state.manual);
-  const extraSheets = useStudio((state) => state.extraSheets);
 
   return useMemo(
-    () => computeLayout(groups, library, options, manual, extraSheets),
-    [groups, library, options, manual, extraSheets],
+    () => computeLayout(groups, library, sheets, manual),
+    [groups, library, sheets, manual],
   );
 }

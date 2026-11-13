@@ -37,8 +37,18 @@ describe("findFreeSpot", () => {
 
 describe("withoutEmptySheets", () => {
   it("drops blank sheets and renumbers the rest", () => {
-    const result = withoutEmptySheets([print("a", 0, 0, 0), print("b", 2, 0, 0)]);
+    const pages = [0, 1, 2].map((pageInSheet) => ({
+      sheetId: `sheet-${pageInSheet}`,
+      pageInSheet: 0,
+      bounds: { ...sheet, widthMm: 100 + pageInSheet },
+      gapXmm: 1,
+      gapYmm: 1,
+      cutGuides: false,
+    }));
+    const result = withoutEmptySheets([print("a", 0, 0, 0), print("b", 2, 0, 0)], pages);
     expect(result.sheetCount).toBe(2);
     expect(result.placements.map((p) => p.sheetIndex)).toEqual([0, 1]);
+    // Each kept page keeps its own paper.
+    expect(result.pages.map((p) => p.bounds.widthMm)).toEqual([100, 102]);
   });
 });

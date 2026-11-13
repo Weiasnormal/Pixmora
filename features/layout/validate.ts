@@ -1,4 +1,4 @@
-import type { Placement, SheetBounds } from "@/features/job/types";
+import type { Placement, SheetBounds, SheetPage } from "@/features/job/types";
 
 /** Below one micrometre is rounding noise, not a physical overlap. */
 const EPSILON_MM = 0.0005;
@@ -43,13 +43,15 @@ export type PlacementProblem = {
   kind: "out-of-bounds" | "overlap";
 };
 
+/** Each print is checked against its own page's paper. */
 export function findPlacementProblems(
   placements: Placement[],
-  sheet: SheetBounds,
+  pages: SheetPage[],
 ): PlacementProblem[] {
   const problems: PlacementProblem[] = [];
   placements.forEach((placement, index) => {
-    if (!isInsideRegion(placement, sheet)) {
+    const page = pages[placement.sheetIndex];
+    if (!page || !isInsideRegion(placement, page.bounds)) {
       problems.push({ itemId: placement.itemId, kind: "out-of-bounds" });
     }
     for (let other = index + 1; other < placements.length; other += 1) {
