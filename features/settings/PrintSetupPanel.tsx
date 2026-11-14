@@ -19,7 +19,7 @@ import {
 import { downloadCalibrationSheet } from "@/features/export/exportJob";
 import { CUSTOM_PAPER_ID, PAPER_PRESETS } from "@/features/job/defaults";
 import { resolveSheet } from "@/features/job/expand";
-import { useStudio } from "@/features/job/store";
+import { activeSheetOf, useStudio } from "@/features/job/store";
 import type { Orientation } from "@/features/job/types";
 import { useLayout } from "@/features/layout/useLayout";
 import { inchesToMm, mmToInches } from "@/features/layout/units";
@@ -57,7 +57,15 @@ function SheetSummary() {
 }
 
 export function PrintSetupPanel() {
-  const options = useStudio((state) => state.options);
+  // These settings belong to the open sheet. The DPI warning is the one shop-wide setting.
+  const sheetOptions = useStudio((state) => activeSheetOf(state).options);
+  const minDpi = useStudio((state) => state.options.minDpi);
+  const options = { ...sheetOptions, minDpi };
+  const sheetCount = useStudio((state) => state.sheets.length);
+  const sheetNumber = useStudio(
+    (state) => state.sheets.findIndex((s) => s.id === activeSheetOf(state).id) + 1,
+  );
+  const applyToAll = useStudio((state) => state.applyOptionsToAllSheets);
   const profiles = useStudio((state) => state.library.profiles);
   const updateOptions = useStudio((state) => state.updateOptions);
   const [unit, setUnit] = useState<"mm" | "in">("mm");
@@ -82,6 +90,22 @@ export function PrintSetupPanel() {
     <div className="flex flex-col">
       <div className="flex flex-col gap-5 p-4">
         <SheetSummary />
+
+        {sheetCount > 1 ? (
+          <div className="flex items-center justify-between gap-2 rounded-xl border border-line px-3 py-2">
+            <p className="text-[13px] font-medium text-ink">Sheet {sheetNumber} settings</p>
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={() => {
+                applyToAll();
+                toast.success(`All ${sheetCount} sheets now use these settings.`);
+              }}
+            >
+              Use on all sheets
+            </Button>
+          </div>
+        ) : null}
 
         <div className="flex flex-col gap-2">
           <SectionTitle>Paper</SectionTitle>
