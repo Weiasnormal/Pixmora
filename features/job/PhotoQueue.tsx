@@ -35,7 +35,10 @@ export function AddPhotoButton({
 }) {
   const inputRef = useRef<HTMLInputElement>(null);
   const addPhotos = useAddPhotos();
-  const count = useStudio((state) => state.groups.length);
+  // Counts the open sheet only: on a new, empty sheet this is its first photo.
+  const count = useStudio(
+    (state) => state.groups.filter((g) => g.sheetId === state.activeSheetId).length,
+  );
 
   useShortcuts(shortcut ? { "mod+o": () => inputRef.current?.click() } : {});
 
@@ -154,7 +157,12 @@ function GroupCard({ group, onRemove }: { group: PhotoGroup; onRemove: () => voi
 }
 
 export function PhotoQueue() {
-  const groups = useStudio((state) => state.groups);
+  const allGroups = useStudio((state) => state.groups);
+  const sheets = useStudio((state) => state.sheets);
+  const activeSheetId = useStudio((state) => state.activeSheetId);
+  // Each sheet is its own paper, so the list shows the photos on the open sheet only.
+  const groups = allGroups.filter((g) => g.sheetId === activeSheetId);
+  const sheetNumber = sheets.findIndex((s) => s.id === activeSheetId) + 1;
   const packages = useStudio((state) => state.library.packages);
   const removeGroup = useStudio((state) => state.removeGroup);
   const clearJob = useStudio((state) => state.clearJob);
@@ -177,7 +185,9 @@ export function PhotoQueue() {
   return (
     <div className="flex h-full min-h-0 flex-col">
       <div className="flex items-center justify-between px-4 pt-4 pb-3">
-        <h2 className="text-sm font-semibold">Photos</h2>
+        <h2 className="text-sm font-semibold">
+          {sheets.length > 1 ? `Photos on Sheet ${sheetNumber}` : "Photos"}
+        </h2>
         <span className="text-xs text-muted tabular-nums">
           {groups.length} {groups.length === 1 ? "group" : "groups"} • {total}{" "}
           {total === 1 ? "print" : "prints"}
@@ -191,7 +201,7 @@ export function PhotoQueue() {
           <GroupCard key={group.id} group={group} onRemove={() => setRemoving(group)} />
         ))}
       </ul>
-      {groups.length > 0 ? (
+      {allGroups.length > 0 ? (
         <div className="border-t border-line p-3">
           <Button variant="ghost" size="sm" className="w-full" onClick={() => setClearing(true)}>
             Clear job
