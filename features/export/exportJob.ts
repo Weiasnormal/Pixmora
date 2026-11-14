@@ -2,7 +2,13 @@ import { canvasToBlob, renderPrint } from "@/features/images/render";
 import { FriendlyError } from "@/features/errors";
 import { resolveRecipe } from "@/features/job/recipe";
 import type { Library } from "@/features/job/expand";
-import type { PhotoAsset, PhotoGroup, Placement, SheetBounds } from "@/features/job/types";
+import type {
+  PhotoAsset,
+  PhotoGroup,
+  Placement,
+  SheetBounds,
+  SheetPage,
+} from "@/features/job/types";
 import type { StudioLayout } from "@/features/layout/computeLayout";
 import { withoutEmptySheets } from "@/features/layout/sheets";
 import {
@@ -21,7 +27,6 @@ export type ExportSnapshot = {
   groups: PhotoGroup[];
   assets: Record<string, PhotoAsset>;
   library: Library;
-  cutGuides: boolean;
 };
 
 function createJobId(): string {
@@ -31,7 +36,7 @@ function createJobId(): string {
 
 export function exportBlocker(layout: StudioLayout): string | null {
   if (layout.totalItems === 0) return "Add a photo first.";
-  if (layout.unplaced.length > 0) return "A print is larger than this paper.";
+  if (layout.unplaced.length > 0) return "A print is larger than its sheet's paper.";
   if (layout.problems.length > 0) return "Fix the overlapping prints first.";
   return null;
 }
@@ -82,13 +87,11 @@ export async function createPrintPdf(snapshot: ExportSnapshot, dpi = DEFAULT_EXP
   }
 
   const jobId = createJobId();
-  const printed = withoutEmptySheets(snapshot.layout.placements);
+  const printed = withoutEmptySheets(snapshot.layout.placements, snapshot.layout.pages);
   const bytes = await buildPrintPdf({
-    sheet: snapshot.layout.sheet,
-    sheetCount: printed.sheetCount,
+    pages: printed.pages,
     placements: printed.placements,
     images,
-    cutGuides: snapshot.cutGuides,
     jobId,
     trace: traceLines(snapshot, printed.placements),
   });
@@ -96,13 +99,14 @@ export async function createPrintPdf(snapshot: ExportSnapshot, dpi = DEFAULT_EXP
 }
 
 function drawSheet(
-  snapshot: ExportSnapshot,
+  sheetPage: SheetPage,
   placements: Placement[],
   sheetIndex: number,
   dpi: number,
   canvases: Map<string, HTMLCanvasElement>,
 ): HTMLCanvasElement {
-  const { sheet } = snapshot.layout;
+  // Each sheet is drawn on its own paper size.
+  const sheet = sheetPage.bounds;
   const page = document.createElement("canvas");
   page.width = Math.round((sheet.widthMm / 25.4) * dpi);
   page.height = Math.round((sheet.heightMm / 25.4) * dpi);
@@ -127,7 +131,7 @@ function drawSheet(
       context.drawImage(source, frame.x, frame.y, frame.width, frame.height);
     }
     context.restore();
-    if (snapshot.cutGuides) {
+    if (sheetPage.cutGuides) {
       context.strokeStyle = "#999999";
       context.lineWidth = 1;
       context.strokeRect(frame.x + 0.5, frame.y + 0.5, frame.width - 1, frame.height - 1);
@@ -158,9 +162,9 @@ export async function downloadPdf(snapshot: ExportSnapshot) {
 export async function downloadPngs(snapshot: ExportSnapshot, dpi: number) {
   assertExportable(snapshot.layout);
   const canvases = await renderCanvases(snapshot, dpi);
-  const printed = withoutEmptySheets(snapshot.layout.placements);
+  const printed = withoutEmptySheets(snapshot.layout.placements, snapshot.layout.pages);
   for (let index = 0; index < printed.sheetCount; index += 1) {
-    const page = drawSheet(snapshot, printed.placements, index, dpi, canvases);
+    const page = drawSheet(printed.pages[index], printed.placements, index, dpi, canvases);
     const blob = await canvasToBlob(page, "image/png");
     triggerDownload(blob, `pixmora-sheet-${index + 1}-${dpi}dpi.png`);
   }

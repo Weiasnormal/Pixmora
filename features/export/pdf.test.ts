@@ -41,11 +41,9 @@ function placement(overrides: Partial<Placement> = {}): Placement {
 
 function job(overrides = {}) {
   return {
-    sheet: A4,
-    sheetCount: 1,
+    pages: [{ bounds: A4, cutGuides: false }],
     placements: [placement()],
     images: new Map([[imageKey("a", "2x2"), WHITE_PIXEL]]),
-    cutGuides: false,
     jobId: "job-1",
     trace: ["Customer A / 2 × 2 in / copy 1"],
     ...overrides,
@@ -64,12 +62,34 @@ describe("buildPrintPdf", () => {
   it("writes one page per sheet", async () => {
     const bytes = await buildPrintPdf(
       job({
-        sheetCount: 2,
+        pages: [
+          { bounds: A4, cutGuides: false },
+          { bounds: A4, cutGuides: false },
+        ],
         placements: [placement(), placement({ itemId: "a:2x2:1", sheetIndex: 1 })],
       }),
     );
 
     expect((await PDFDocument.load(bytes)).getPageCount()).toBe(2);
+  });
+
+  it("gives each sheet its own paper size", async () => {
+    const letterLandscape = { widthMm: 279.4, heightMm: 215.9, insetMm: 0 };
+    const pdf = await PDFDocument.load(
+      await buildPrintPdf(
+        job({
+          pages: [
+            { bounds: A4, cutGuides: false },
+            { bounds: letterLandscape, cutGuides: true },
+          ],
+          placements: [placement(), placement({ itemId: "a:2x2:1", sheetIndex: 1 })],
+        }),
+      ),
+    );
+
+    expect(pdf.getPage(0).getSize().width).toBeCloseTo(595.276, 2);
+    expect(pdf.getPage(1).getSize().width).toBeCloseTo(792, 2);
+    expect(pdf.getPage(1).getSize().height).toBeCloseTo(612, 2);
   });
 
   it("records the job and each copy in the metadata", async () => {

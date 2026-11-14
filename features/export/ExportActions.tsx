@@ -31,7 +31,6 @@ const PRINT_CHECKLIST = [
 
 export function ExportActions() {
   const layout = useLayout();
-  const cutGuides = useStudio((state) => state.options.cutGuides);
   const [busy, setBusy] = useState<Busy>(null);
   const [pngOpen, setPngOpen] = useState(false);
   const [printOpen, setPrintOpen] = useState(false);
@@ -39,7 +38,7 @@ export function ExportActions() {
 
   const blocker = exportBlocker(layout);
   // Blank sheets added by hand are left out of exports.
-  const printedSheets = withoutEmptySheets(layout.placements).sheetCount;
+  const printedSheets = withoutEmptySheets(layout.placements, layout.pages).sheetCount;
 
   const snapshot = (): ExportSnapshot => {
     const state = useStudio.getState();
@@ -48,7 +47,6 @@ export function ExportActions() {
       groups: state.groups,
       assets: state.assets,
       library: state.library,
-      cutGuides,
     };
   };
 

@@ -1,16 +1,15 @@
 import { PDFDocument, StandardFonts, degrees, rgb } from "pdf-lib";
 import { FriendlyError } from "@/features/errors";
-import type { Placement, SheetBounds } from "@/features/job/types";
+import type { Placement, SheetBounds, SheetPage } from "@/features/job/types";
 import { mmToPixels, mmToPoints } from "@/features/layout/units";
 
 export type EmbeddedImage = { bytes: Uint8Array; type: "jpeg" | "png" };
 
 export type PdfJob = {
-  sheet: SheetBounds;
-  sheetCount: number;
+  /** One entry per PDF page. Each page keeps its own paper size and cut guide setting. */
+  pages: Pick<SheetPage, "bounds" | "cutGuides">[];
   placements: Placement[];
   images: Map<string, EmbeddedImage>;
-  cutGuides: boolean;
   jobId: string;
   /** One readable line per copy, so every print traces back to its group. */
   trace: string[];
@@ -59,18 +58,15 @@ export async function buildPrintPdf(job: PdfJob): Promise<Uint8Array> {
     );
   }
 
-  const pageWidth = mmToPoints(job.sheet.widthMm);
-  const pageHeight = mmToPoints(job.sheet.heightMm);
-
-  for (let index = 0; index < job.sheetCount; index += 1) {
-    const page = pdf.addPage([pageWidth, pageHeight]);
+  for (const [index, { bounds, cutGuides }] of job.pages.entries()) {
+    const page = pdf.addPage([mmToPoints(bounds.widthMm), mmToPoints(bounds.heightMm)]);
     for (const placement of job.placements) {
       if (placement.sheetIndex !== index) continue;
       const image = embedded.get(imageKey(placement.groupId, placement.photoSizeId));
       if (!image) {
         throw new FriendlyError("A photo was missing while building the PDF. Try exporting again.");
       }
-      const frame = pdfImageFrame(placement, job.sheet.heightMm);
+      const frame = pdfImageFrame(placement, bounds.heightMm);
       page.drawImage(image, {
         x: frame.x,
         y: frame.y,
@@ -78,10 +74,10 @@ export async function buildPrintPdf(job: PdfJob): Promise<Uint8Array> {
         height: frame.height,
         rotate: degrees(frame.rotate),
       });
-      if (job.cutGuides) {
+      if (cutGuides) {
         page.drawRectangle({
           x: mmToPoints(placement.xMm),
-          y: mmToPoints(job.sheet.heightMm - placement.yMm - placement.heightMm),
+          y: mmToPoints(bounds.heightMm - placement.yMm - placement.heightMm),
           width: mmToPoints(placement.widthMm),
           height: mmToPoints(placement.heightMm),
           borderColor: rgb(0.6, 0.6, 0.6),
