@@ -22,6 +22,9 @@ figure{width:min(100%,325px)}
 @media(max-width:767px){figure{width:min(74vw,255px)}
 }
 
+.eyebrow{display:block;max-width:none;margin-bottom:16px;font-size:14px;font-weight:500;letter-spacing:0;line-height:1.4;color:#60605c}
+main>section:nth-child(4),main>section:nth-child(5)>div{max-width:68rem}
+main>section:nth-child(5){background:#f8f8f7}
 .privacy{margin-top:12px;font-size:13px;color:#60605c}
 .step-art{height:78px;width:120px;margin-bottom:16px}
 main>section:nth-child(2)>div,main>section:nth-child(3),footer>div{max-width:68rem}
