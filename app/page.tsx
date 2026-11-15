@@ -2,7 +2,8 @@ import Image from "next/image";
 import { PrintSheet } from "@/components/PrintSheet";
 import "./homepage.css";
 import Link from "next/link";
-import { ArrowRight } from "lucide-react";
+import { ArrowRight, Play } from "lucide-react";
+import { DEMO_VIDEO, DemoVideo, WatchDemoButton } from "@/features/demo/DemoVideo";
 import { Logo } from "@/components/Logo";
 import { FeedbackLink } from "@/features/feedback/FeedbackDialog";
 import type { PrintItem } from "@/features/job/types";
@@ -124,6 +125,18 @@ export default function Home() {
     },
     {
       "@context": "https://schema.org",
+      "@type": "VideoObject",
+      name: "Pixmora demo: two print orders on one A4 sheet",
+      description:
+        "A one-minute walkthrough of Pixmora: set up packages, frame and clean up a portrait, then pack 2x2 and 1x1 prints for two customers onto one sheet and export the PDF.",
+      thumbnailUrl: [absoluteUrl(DEMO_VIDEO.posterLandscape)],
+      uploadDate: "2026-11-12T19:00:00+08:00",
+      duration: `PT${DEMO_VIDEO.durationSeconds}S`,
+      contentUrl: absoluteUrl(DEMO_VIDEO.landscape),
+      inLanguage: "en",
+    },
+    {
+      "@context": "https://schema.org",
       "@type": "FAQPage",
       mainEntity: faq.map((item) => ({
         "@type": "Question",
@@ -178,11 +191,16 @@ export default function Home() {
             </p>
             <Link
               href="/studio"
-              className="mt-8 inline-flex h-12 items-center gap-2 rounded-lg bg-primary px-5 font-medium text-ink transition-colors duration-150 ease-out hover:bg-primary-hover"
+              className="mt-8 mr-2 inline-flex h-12 items-center gap-2 rounded-lg bg-primary px-5 font-medium text-ink transition-colors duration-150 ease-out hover:bg-primary-hover"
             >
               Open Studio
               <ArrowRight aria-hidden className="size-4" />
             </Link>
+            <WatchDemoButton className="watch-demo">
+              <Play aria-hidden className="size-4 fill-current" />
+              <span className="max-sm:hidden">Watch the 1-minute demo</span>
+              <span className="sm:hidden">Watch the demo</span>
+            </WatchDemoButton>
             <p className="privacy">Photos stay in your browser.</p>
           </div>
 
@@ -207,6 +225,16 @@ export default function Home() {
               engine the Studio uses.
             </figcaption>
           </figure>
+        </section>
+
+        <section className="demo" aria-labelledby="demo-title">
+          <h2 id="demo-title" className="text-2xl font-semibold tracking-tight">
+            See it in one minute
+          </h2>
+          <p className="mt-2 text-sm leading-relaxed text-muted">
+            Two customers, two photo sizes, one A4 sheet, from the first photo to the PDF.
+          </p>
+          <DemoVideo />
         </section>
 
         <section className="bg-page">
