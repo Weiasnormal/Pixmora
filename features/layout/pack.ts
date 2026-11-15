@@ -295,7 +295,7 @@ export function packItems(items: PrintItem[], options: PackOptions): LayoutResul
     errors.push({
       code: "item-too-large",
       itemId: item.id,
-      message: `A ${item.widthMm} Ã— ${item.heightMm} mm print does not fit this paper at true size. Choose larger paper, change the orientation, or allow rotation.`,
+      message: `A ${item.widthMm} × ${item.heightMm} mm print does not fit this paper at true size. Choose larger paper, change the orientation, or allow rotation.`,
     });
   }
 

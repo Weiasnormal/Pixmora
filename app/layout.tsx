@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import { Geist } from "next/font/google";
+import { SITE_NAME, SITE_URL, SOCIAL_IMAGE } from "@/features/seo/site";
 import "./globals.css";
 
 const geistSans = Geist({
@@ -7,16 +8,19 @@ const geistSans = Geist({
   subsets: ["latin"],
 });
 
-const TITLE = "Pixmora: Less Space. More Prints.";
+const TITLE = "Pixmora: Print 1x1, 2x2 and Passport Photos on One Sheet";
 const DESCRIPTION =
-  "Prepare photos, mix print packages on one sheet, and export true-size PDFs from your browser.";
+  "Free ID photo layout tool. Mix 1x1, 2x2 and passport photos for several customers on one A4 sheet at true size. Photos never leave your browser.";
 
-const productionHost = process.env.VERCEL_PROJECT_PRODUCTION_URL;
+// Search engine ownership tags. Set these in Vercel once Search Console and Bing Webmaster give you the codes.
+const googleVerification = process.env.GOOGLE_SITE_VERIFICATION?.trim();
+const bingVerification = process.env.BING_SITE_VERIFICATION?.trim();
 
 export const metadata: Metadata = {
-  metadataBase: new URL(productionHost ? `https://${productionHost}` : "http://localhost:3000"),
-  title: TITLE,
+  metadataBase: SITE_URL,
+  title: { default: TITLE, template: `%s | ${SITE_NAME}` },
   description: DESCRIPTION,
+  applicationName: SITE_NAME,
   // WebP is not a supported icon file convention, so these are declared here.
   icons: {
     icon: [32, 64, 96, 256].map((size) => ({
@@ -24,28 +28,26 @@ export const metadata: Metadata = {
       sizes: `${size}x${size}`,
       type: "image/webp",
     })),
-    apple: { url: "/brand/android-chrome-192x192.webp", sizes: "192x192", type: "image/webp" },
+    // iOS only reads PNG touch icons.
+    apple: { url: "/brand/apple-touch-icon.png", sizes: "180x180", type: "image/png" },
   },
   openGraph: {
     type: "website",
-    siteName: "Pixmora",
+    siteName: SITE_NAME,
+    locale: "en_PH",
     title: TITLE,
     description: DESCRIPTION,
-    images: {
-      url: "/brand/pixmora-og-1200x630.webp",
-      width: 1200,
-      height: 630,
-      alt: "Pixmora: Smarter Photo Layouts for Better Prints",
-    },
+    images: [SOCIAL_IMAGE],
   },
   twitter: {
     card: "summary_large_image",
     title: TITLE,
     description: DESCRIPTION,
-    images: {
-      url: "/brand/pixmora-social-preview.webp",
-      alt: "Pixmora: Smarter Photo Layouts for Better Prints",
-    },
+    images: [{ ...SOCIAL_IMAGE, url: "/brand/pixmora-social-preview-1200x630.jpg" }],
+  },
+  verification: {
+    ...(googleVerification ? { google: googleVerification } : {}),
+    ...(bingVerification ? { other: { "msvalidate.01": bingVerification } } : {}),
   },
 };
 
