@@ -1,12 +1,15 @@
 import type { Metadata } from "next";
 import Link from "next/link";
-import { Logo } from "@/components/Logo";
+import { PageShell } from "@/components/PageShell";
 import { FeedbackLink } from "@/features/feedback/FeedbackDialog";
+import { pageMetadata } from "@/features/seo/site";
 
-export const metadata: Metadata = {
-  title: "Print guide | Pixmora",
-  description: "Paper sizing, DPI, calibration and borderless printing guidance for Pixmora.",
-};
+export const metadata: Metadata = pageMetadata({
+  title: "How to Print Photos at Actual Size",
+  description:
+    "Why prints come out smaller, and how to fix it: printer settings for actual size, borderless printing, DPI, and a calibration sheet to check your printer.",
+  path: "/help",
+});
 
 const CHECKLIST = [
   "Select the same paper size in the print dialog as in Pixmora.",
@@ -26,21 +29,10 @@ const CALIBRATION = [
 
 export default function HelpPage() {
   return (
-    <div className="flex min-h-full flex-col">
-      <header className="mx-auto flex w-full max-w-3xl items-center justify-between gap-4 px-4 py-4 sm:px-8">
-        <Link href="/" aria-label="Pixmora home">
-          <Logo height={40} />
-        </Link>
-        <Link
-          href="/studio"
-          className="inline-flex h-10 items-center rounded-lg bg-primary px-4 text-sm font-medium text-ink transition-colors duration-150 ease-out hover:bg-primary-hover"
-        >
-          Open Studio
-        </Link>
-      </header>
-
-      <main className="mx-auto w-full max-w-3xl flex-1 px-4 pt-8 pb-20 sm:px-8">
-        <h1 className="text-4xl font-semibold tracking-tight">Print guide</h1>
+    <PageShell>
+        <h1 className="text-4xl font-semibold tracking-tight text-balance">
+          Print guide: how to print photos at actual size
+        </h1>
         <p className="mt-4 max-w-[62ch] leading-relaxed text-muted">
           What the file controls, what your printer controls, and how to check that a 2 × 2 in
           print really measures 2 × 2 in.
@@ -98,7 +90,9 @@ export default function HelpPage() {
           <p className="mt-4 max-w-[68ch] leading-relaxed text-muted">
             Requirements differ by country and purpose. Check the size with the issuing authority,
             then set it under Photo sizes in the Studio’s Packages tab. The built-in passport size is only a
-            starting value, and Pixmora asks you to confirm it.
+            starting value, and Pixmora asks you to confirm it. The{" "}
+            <Link href="/sizes" className="underline hover:text-ink">photo size guides</Link> list
+            1x1, 2x2, passport and R sizes in cm and mm.
           </p>
         </section>
 
@@ -109,7 +103,6 @@ export default function HelpPage() {
             happened. <FeedbackLink />
           </p>
         </section>
-      </main>
-    </div>
+    </PageShell>
   );
 }
