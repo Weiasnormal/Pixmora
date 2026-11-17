@@ -8,6 +8,11 @@ export type BackgroundRemovalProvider = {
 };
 
 const MODEL_ID = "Xenova/modnet";
+/**
+ * The exact model commit on Hugging Face (October 2025). Pinned so an upstream change can't
+ * quietly change everyone's cutouts; move it on purpose after testing a newer one.
+ */
+const MODEL_REVISION = "fa2fa546052fba4c08921230a26cc69a333fca12";
 
 type Cutout = { toBlob: (type: string) => Promise<Blob> };
 type Segmenter = (input: string) => Promise<Cutout | Cutout[]>;
@@ -18,6 +23,7 @@ function loadSegmenter(onProgress: (progress: RemovalProgress) => void): Promise
   segmenter ??= import("@huggingface/transformers")
     .then(({ pipeline }) =>
       pipeline("background-removal", MODEL_ID, {
+        revision: MODEL_REVISION,
         // The 8-bit model returns unreliable mattes, so the full-precision one is worth the larger download.
         dtype: "fp32",
         progress_callback: (event: { status: string; progress?: number }) => {
