@@ -1,9 +1,50 @@
 import { describe, expect, it, vi } from "vitest";
-import { escapeHtml, feedbackEmail, sendFeedback, templateVariables, validateFeedback } from "./send";
+import {
+  checkRequestSource,
+  escapeHtml,
+  feedbackEmail,
+  sendFeedback,
+  templateVariables,
+  validateFeedback,
+} from "./send";
 
 const env = { apiKey: "test-key", to: "owner@example.com" };
 
+describe("checkRequestSource", () => {
+  const headers = (values: Record<string, string>) =>
+    new Headers({ host: "pixmora.example", "content-type": "application/json", ...values });
+
+  it("accepts JSON from Pixmora's own pages", () => {
+    expect(checkRequestSource(headers({ origin: "https://pixmora.example" }))).toMatchObject({ ok: true });
+    expect(
+      checkRequestSource(headers({ "content-type": "application/json; charset=utf-8", origin: "https://pixmora.example" })),
+    ).toMatchObject({ ok: true });
+  });
+
+  it("refuses posts from other websites", () => {
+    expect(checkRequestSource(headers({ origin: "https://evil.example" }))).toMatchObject({ ok: false, status: 403 });
+    expect(checkRequestSource(headers({ origin: "null" }))).toMatchObject({ ok: false, status: 403 });
+  });
+
+  it("refuses anything that isn't JSON, the kind a form on another site can send without asking", () => {
+    expect(checkRequestSource(headers({ "content-type": "text/plain" }))).toMatchObject({ ok: false, status: 415 });
+    expect(checkRequestSource(new Headers({ host: "pixmora.example" }))).toMatchObject({ ok: false, status: 415 });
+  });
+
+  it("uses the forwarded host behind a proxy", () => {
+    expect(
+      checkRequestSource(
+        headers({ host: "internal:3000", "x-forwarded-host": "pixmora.example", origin: "https://pixmora.example" }),
+      ),
+    ).toMatchObject({ ok: true });
+  });
+});
+
 describe("validateFeedback", () => {
+  it.each([null, 42, "text", ["message"]])("refuses a body that isn't an object: %j", (body) => {
+    expect(validateFeedback(body)).toMatchObject({ ok: false, status: 400 });
+  });
+
   it("needs a message", () => {
     expect(validateFeedback({ message: "   " })).toMatchObject({ ok: false, status: 400 });
   });

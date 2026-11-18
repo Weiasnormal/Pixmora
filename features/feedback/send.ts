@@ -25,8 +25,38 @@ type Result<T> = { ok: true; value: T } | { ok: false; status: number; error: st
 
 const EMAIL_PATTERN = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
+/**
+ * Only Pixmora's own pages may send feedback. Requiring JSON makes a browser ask
+ * before posting from another website, and the Origin check refuses those posts outright,
+ * so other sites cannot make their visitors fill the inbox.
+ */
+export function checkRequestSource(headers: Headers): Result<null> {
+  const type = headers.get("content-type")?.split(";")[0]?.trim().toLowerCase();
+  if (type !== "application/json") {
+    return { ok: false, status: 415, error: "That request couldn't be read." };
+  }
+  // Browsers always send Origin on a POST; tools that leave it out can't act for a visitor.
+  const origin = headers.get("origin");
+  if (origin) {
+    const host = headers.get("x-forwarded-host") ?? headers.get("host");
+    let originHost: string | null = null;
+    try {
+      originHost = new URL(origin).host;
+    } catch {
+      // "null" or a malformed value: treat it as another site.
+    }
+    if (!host || originHost !== host) {
+      return { ok: false, status: 403, error: "Feedback can only be sent from Pixmora." };
+    }
+  }
+  return { ok: true, value: null };
+}
+
 export function validateFeedback(raw: unknown): Result<Feedback> {
-  const input = (raw ?? {}) as Record<string, unknown>;
+  if (typeof raw !== "object" || raw === null || Array.isArray(raw)) {
+    return { ok: false, status: 400, error: "That request couldn't be read." };
+  }
+  const input = raw as Record<string, unknown>;
   const message = typeof input.message === "string" ? input.message.trim() : "";
   const email = typeof input.email === "string" ? input.email.trim() : "";
   const context = typeof input.context === "string" ? input.context.trim() : "";
