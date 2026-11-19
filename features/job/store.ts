@@ -7,6 +7,7 @@ import { layoutSignature } from "@/features/layout/computeLayout";
 import { DEFAULT_OPTIONS, DEFAULT_PHOTO_SIZES, DEFAULT_PRINTER_PROFILES } from "./defaults";
 import { groupSizeIds, type Library } from "./expand";
 import { patchRecipe, shareLook, unshareLook } from "./recipe";
+import { SETTINGS_STORAGE_KEY, migrateSettings, repairSettings } from "./savedSettings";
 import type {
   EditRecipe,
   LayoutOptions,
@@ -165,13 +166,6 @@ function revokeUnused(
   return kept;
 }
 
-type SavedSettings = Pick<StudioState, "library" | "options" | "setupDone">;
-
-/** Settings saved before setup existed already had packages, so those users skip it. */
-export function migrateSettings(saved: unknown, version: number): SavedSettings {
-  const settings = saved as SavedSettings;
-  return version < 2 ? { ...settings, setupDone: true } : settings;
-}
 
 export const useStudio = create<StudioState>()(
   persist(
@@ -650,7 +644,7 @@ export const useStudio = create<StudioState>()(
       }
     },
     {
-      name: "pixmora-settings",
+      name: SETTINGS_STORAGE_KEY,
       version: 2,
       storage: createJSONStorage(() => localStorage),
       skipHydration: true,
@@ -661,6 +655,15 @@ export const useStudio = create<StudioState>()(
         setupDone: state.setupDone,
       }),
       migrate: migrateSettings,
+      // Runs on every load, not only after a version change, so damaged settings never reach the Studio.
+      merge: (saved, current) => ({
+        ...current,
+        ...repairSettings(saved, {
+          library: current.library,
+          options: current.options,
+          setupDone: current.setupDone,
+        }),
+      }),
       onRehydrateStorage: () => (state) => {
         useStudio.setState((current) => ({
           hydrated: true,
