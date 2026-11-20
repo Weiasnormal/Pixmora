@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useMemo, useState } from "react";
 import { friendlyMessage } from "@/features/errors";
 import { FileDown, ImageDown, Loader2, Printer } from "lucide-react";
 import { toast } from "sonner";
@@ -15,11 +15,14 @@ import {
   downloadPdf,
   downloadPngs,
   exportBlocker,
+  pngFits,
   printPdf,
   type ExportSnapshot,
 } from "./exportJob";
 
 type Busy = "pdf" | "png" | "print" | null;
+
+const DPI_CHOICES = [150, 300, 600];
 
 const PRINT_CHECKLIST = [
   "Choose the same paper size as this job.",
@@ -34,11 +37,21 @@ export function ExportActions() {
   const [busy, setBusy] = useState<Busy>(null);
   const [pngOpen, setPngOpen] = useState(false);
   const [printOpen, setPrintOpen] = useState(false);
-  const [dpi, setDpi] = useState(DEFAULT_EXPORT_DPI);
+  const [chosenDpi, setDpi] = useState(DEFAULT_EXPORT_DPI);
 
   const blocker = exportBlocker(layout);
   // Blank sheets added by hand are left out of exports.
-  const printedSheets = withoutEmptySheets(layout.placements, layout.pages).sheetCount;
+  const printed = useMemo(() => withoutEmptySheets(layout.placements, layout.pages), [layout]);
+  const printedSheets = printed.sheetCount;
+  // Checked only while the PNG dialog is open, since the test briefly uses a lot of memory.
+  const tooLarge = useMemo(
+    () => (pngOpen ? DPI_CHOICES.filter((choice) => !pngFits(printed.pages, choice)) : []),
+    [pngOpen, printed],
+  );
+  // A resolution this browser can't make falls back to the highest one it can.
+  const dpi = tooLarge.includes(chosenDpi)
+    ? (DPI_CHOICES.filter((choice) => !tooLarge.includes(choice)).at(-1) ?? DPI_CHOICES[0])
+    : chosenDpi;
 
   const snapshot = (): ExportSnapshot => {
     const state = useStudio.getState();
@@ -158,14 +171,25 @@ export function ExportActions() {
         <div className="flex flex-col gap-3">
           <Field label="Resolution">
             <SelectField value={String(dpi)} onChange={(value) => setDpi(Number(value))}>
-              <option value="150">150 DPI</option>
-              <option value="300">300 DPI</option>
-              <option value="600">600 DPI</option>
+              {DPI_CHOICES.map((choice) => (
+                <option key={choice} value={choice} disabled={tooLarge.includes(choice)}>
+                  {choice} DPI{tooLarge.includes(choice) ? " (too large for this browser)" : ""}
+                </option>
+              ))}
             </SelectField>
           </Field>
+          {tooLarge.length > 0 && (
+            <Notice>
+              This browser can&apos;t make {tooLarge.join(" or ")} DPI images this large. Export PDF
+              keeps full quality on any device.
+            </Notice>
+          )}
           <p className="text-[13px] leading-relaxed text-muted">
-            Each sheet downloads as its own file. Edges stay within half a pixel of their true
-            position. Use PDF when physical size matters most.
+            {printedSheets > 1
+              ? `The ${printedSheets} sheets download together as one ZIP file of PNGs.`
+              : "The sheet downloads as one PNG file."}{" "}
+            Edges stay within half a pixel of their true position. Use PDF when physical size
+            matters most.
           </p>
         </div>
       </Modal>

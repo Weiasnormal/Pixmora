@@ -18,6 +18,8 @@ import {
   pixelFrame,
   type EmbeddedImage,
 } from "./pdf";
+import { canvasFits } from "./canvasLimit";
+import { createZip, type ZipEntry } from "./zip";
 
 export const DEFAULT_EXPORT_DPI = 300;
 
@@ -98,6 +100,22 @@ export async function createPrintPdf(snapshot: ExportSnapshot, dpi = DEFAULT_EXP
   return { bytes, jobId };
 }
 
+/** The size in pixels of one whole sheet at this DPI. */
+export function sheetPixels(sheet: SheetBounds, dpi: number) {
+  return {
+    width: Math.round((sheet.widthMm / 25.4) * dpi),
+    height: Math.round((sheet.heightMm / 25.4) * dpi),
+  };
+}
+
+/** Whether this browser can draw every sheet at this DPI as one PNG. */
+export function pngFits(pages: SheetPage[], dpi: number): boolean {
+  return pages.every((page) => {
+    const { width, height } = sheetPixels(page.bounds, dpi);
+    return canvasFits(width, height);
+  });
+}
+
 function drawSheet(
   sheetPage: SheetPage,
   placements: Placement[],
@@ -106,10 +124,10 @@ function drawSheet(
   canvases: Map<string, HTMLCanvasElement>,
 ): HTMLCanvasElement {
   // Each sheet is drawn on its own paper size.
-  const sheet = sheetPage.bounds;
   const page = document.createElement("canvas");
-  page.width = Math.round((sheet.widthMm / 25.4) * dpi);
-  page.height = Math.round((sheet.heightMm / 25.4) * dpi);
+  const pixels = sheetPixels(sheetPage.bounds, dpi);
+  page.width = pixels.width;
+  page.height = pixels.height;
   const context = page.getContext("2d");
   if (!context) throw new FriendlyError("This browser could not start image rendering.");
 
@@ -159,15 +177,40 @@ export async function downloadPdf(snapshot: ExportSnapshot) {
   return jobId;
 }
 
+/**
+ * One sheet downloads as a PNG. Several sheets download together as one ZIP, because
+ * browsers block or drop a burst of separate downloads (phones often keep only the first).
+ */
 export async function downloadPngs(snapshot: ExportSnapshot, dpi: number) {
   assertExportable(snapshot.layout);
-  const canvases = await renderCanvases(snapshot, dpi);
   const printed = withoutEmptySheets(snapshot.layout.placements, snapshot.layout.pages);
+  if (!pngFits(printed.pages, dpi)) {
+    throw new FriendlyError(
+      `This browser can't make a sheet that large at ${dpi} DPI. Choose a lower resolution, or use Export PDF for full quality.`,
+    );
+  }
+  const canvases = await renderCanvases(snapshot, dpi);
+  const files: ZipEntry[] = [];
   for (let index = 0; index < printed.sheetCount; index += 1) {
     const page = drawSheet(printed.pages[index], printed.placements, index, dpi, canvases);
     const blob = await canvasToBlob(page, "image/png");
-    triggerDownload(blob, `pixmora-sheet-${index + 1}-${dpi}dpi.png`);
+    // Each sheet is released before the next is drawn, which matters on phones.
+    page.width = 0;
+    page.height = 0;
+    if (printed.sheetCount === 1) {
+      triggerDownload(blob, `pixmora-sheet-1-${dpi}dpi.png`);
+      return 1;
+    }
+    files.push({
+      name: `pixmora-sheet-${index + 1}-${dpi}dpi.png`,
+      bytes: new Uint8Array(await blob.arrayBuffer()),
+    });
   }
+  const zip = createZip(files);
+  triggerDownload(
+    new Blob([zip.slice().buffer], { type: "application/zip" }),
+    `pixmora-${printed.sheetCount}-sheets-${dpi}dpi.zip`,
+  );
   return printed.sheetCount;
 }
 
